@@ -6,6 +6,7 @@ import { PublishPanel } from './publish-panel'
 import { formatEtb, split } from '@/lib/money/commission'
 import { Applicants } from './applicants'
 import { ClientPanel } from './client-panel'
+import { TalentPanel } from './talent-panel'
 
 export const dynamic = 'force-dynamic'
 
@@ -97,6 +98,8 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
       <ClientPanel jobId={job.id} />
 
       <Applicants jobId={job.id} jobOpen={job.status === 'open'} />
+
+      <TalentPanel jobId={job.id} jobOpen={job.status === 'open'} />
 
       <PublishPanel jobId={job.id} approved={approved} />
 

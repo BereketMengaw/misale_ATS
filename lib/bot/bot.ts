@@ -9,6 +9,7 @@ import { parseApplyPayload } from '@/lib/jobs/apply-link'
 import { beginRegistration, handleRegisterCallback, handleRegisterMessage } from './flows/register'
 import { applyToJob, findCandidate } from '@/lib/candidates/store'
 import { recordCommissionDecision } from '@/lib/hiring/service'
+import { markTalentApplied } from '@/lib/talent/service'
 
 let cached: Bot | null = null
 
@@ -151,6 +152,8 @@ async function applyAsExisting(
   const job = await getJob(jobId)
   const label = job ? `${job.subject} · ${job.grade} · ${job.area}` : 'that job'
   const outcome = await applyToJob(candidateId, jobId, publicationId)
+  // If they came from a talent DM, record that it converted.
+  if (outcome === 'created') await markTalentApplied(jobId, candidateId)
 
   await reply(
     ctx,

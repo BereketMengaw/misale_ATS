@@ -10,6 +10,7 @@ import {
 } from '@/lib/candidates/options'
 import { applyToJob, saveCandidate, storeCv, type Draft } from '@/lib/candidates/store'
 import { normalizePhone, phoneProblem } from '@/lib/candidates/phone'
+import { markTalentApplied } from '@/lib/talent/service'
 import { env } from '@/lib/env'
 
 const MAX_CV_BYTES = 10 * 1024 * 1024
@@ -142,6 +143,7 @@ async function finish(ctx: Context, sess: Sess) {
   if (sess.jobId) {
     const job = await getJob(sess.jobId)
     const outcome = await applyToJob(saved.id, sess.jobId, sess.publicationId ?? null)
+    if (outcome === 'created') await markTalentApplied(sess.jobId, saved.id)
     if (job && outcome !== 'failed') appliedTo = `${job.subject} · ${job.grade} · ${job.area}`
   }
 

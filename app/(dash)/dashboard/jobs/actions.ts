@@ -216,3 +216,14 @@ export async function setClient(formData: FormData): Promise<void> {
 
   revalidatePath(`/dashboard/jobs/${jobId}`)
 }
+
+/** Message the matching tutors already in the pool. */
+export async function messageTalentPool(formData: FormData): Promise<void> {
+  const jobId = Number(formData.get('id'))
+  if (!jobId) return
+
+  const { sendTalentDms } = await import('@/lib/talent/service')
+  await sendTalentDms(jobId)
+
+  revalidatePath(`/dashboard/jobs/${jobId}`)
+}
