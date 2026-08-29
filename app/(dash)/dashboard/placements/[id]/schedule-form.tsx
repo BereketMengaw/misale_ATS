@@ -7,6 +7,7 @@ import { DAYS } from '@/lib/candidates/options'
 const input =
   'w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none'
 
+/** A note of what was agreed. Nothing is scheduled and nothing is sent. */
 export function ScheduleForm({
   placementId,
   current,
@@ -48,11 +49,11 @@ export function ScheduleForm({
         </label>
         <label className="block">
           <span className="text-sm font-medium text-neutral-700">From</span>
-          <input name="startsOn" type="date" defaultValue={startsOn ?? ''} className={`mt-1 ${input}`} required />
+          <input name="startsOn" type="date" defaultValue={startsOn ?? ''} className={`mt-1 ${input}`} />
         </label>
         <label className="block">
           <span className="text-sm font-medium text-neutral-700">Until</span>
-          <input name="endsOn" type="date" defaultValue={endsOn ?? ''} className={`mt-1 ${input}`} required />
+          <input name="endsOn" type="date" defaultValue={endsOn ?? ''} className={`mt-1 ${input}`} />
         </label>
       </div>
 
@@ -63,11 +64,8 @@ export function ScheduleForm({
         disabled={pending}
         className="rounded-md bg-neutral-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
       >
-        {pending ? 'Scheduling…' : 'Schedule lessons'}
+        {pending ? 'Saving…' : 'Save schedule'}
       </button>
-      <p className="text-xs text-neutral-400">
-        Times are Addis time. Re-running only adds what is missing — nothing already confirmed is touched.
-      </p>
     </form>
   )
 }

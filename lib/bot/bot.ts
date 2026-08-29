@@ -10,7 +10,6 @@ import { beginRegistration, handleRegisterCallback, handleRegisterMessage } from
 import { applyToJob, findCandidate } from '@/lib/candidates/store'
 import { recordCommissionDecision } from '@/lib/hiring/service'
 import { markTalentApplied } from '@/lib/talent/service'
-import { confirmHours } from '@/lib/placements/service'
 
 let cached: Bot | null = null
 
@@ -88,17 +87,6 @@ function register(bot: Bot) {
     await ctx.editMessageReplyMarkup({ reply_markup: undefined }).catch(() => {})
 
     if (reply_) await reply(ctx, reply_)
-  })
-
-  // The tutor confirming what they actually taught.
-  bot.callbackQuery(/^hrs:(\d+):([\d.]+)$/, async (ctx) => {
-    const sessionId = Number(ctx.match[1])
-    const hours = Number(ctx.match[2])
-    await ctx.answerCallbackQuery()
-
-    const message = await confirmHours(sessionId, hours, ctx.from.id)
-    await ctx.editMessageReplyMarkup({ reply_markup: undefined }).catch(() => {})
-    if (message) await reply(ctx, message)
   })
 
   // Tapping one of the "here is what's open now" buttons.
