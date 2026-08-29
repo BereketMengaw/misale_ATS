@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { regenerateJob, saveBody, setApproval } from '../actions'
 import { PublishPanel } from './publish-panel'
+import { Applicants } from './applicants'
 
 export const dynamic = 'force-dynamic'
 
@@ -80,6 +81,8 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
           </button>
         </form>
       </div>
+
+      <Applicants jobId={job.id} />
 
       <PublishPanel jobId={job.id} approved={approved} />
 
