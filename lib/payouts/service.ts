@@ -114,19 +114,18 @@ export async function releaseContactsIfDue(placementId: number): Promise<boolean
   }
 
   // The parent gets the tutor's number by SMS, in Amharic, for the operator to send.
-  if (job && tutor) {
-    await db.from('outbox').insert({
-      purpose: 'introduction',
-      recipient: client?.full_name ?? 'Parent',
-      phone: client?.phone ?? null,
-      client_id: client?.id ?? null,
-      body: introductionAm(
+  if (job && tutor && client) {
+    const { notifyClient } = await import('@/lib/messaging/notify')
+    await notifyClient(
+      client.id,
+      introductionAm(
         tutor.full_name ?? 'አስተማሪዎ',
         tutor.phone,
         { subject: job.subject, grade: job.grade, area: job.area, daysPerWeek: job.days_per_week },
         true,
       ),
-    })
+      'introduction',
+    )
   }
 
   return true

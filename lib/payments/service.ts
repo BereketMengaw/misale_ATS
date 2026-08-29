@@ -87,15 +87,13 @@ async function queueReceipt(invoiceId: number): Promise<void> {
     .maybeSingle()
   if (!inv) return
 
-  const client = inv.clients as unknown as { full_name: string; phone: string | null } | null
-  await db.from('outbox').insert({
-    purpose: 'receipt',
-    recipient: client?.full_name ?? 'Parent',
-    phone: client?.phone ?? null,
-    body: paymentReceivedAm(formatEtb(Number(inv.gross_cents)), inv.reference),
-    invoice_id: inv.id,
-    client_id: inv.client_id,
-  })
+  const { notifyClient } = await import('@/lib/messaging/notify')
+  await notifyClient(
+    inv.client_id,
+    paymentReceivedAm(formatEtb(Number(inv.gross_cents)), inv.reference),
+    'receipt',
+    inv.id,
+  )
 }
 
 /** The operator attaching an unmatched payment by hand. One tap. */

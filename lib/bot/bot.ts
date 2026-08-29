@@ -6,8 +6,12 @@ import { getSession, saveSession } from './session'
 import { logMessage } from './log'
 import { countApply, getJob, isLive, listOpenJobs } from './jobs'
 import { parseApplyPayload } from '@/lib/jobs/apply-link'
+import { parseParentPayload } from '@/lib/messaging/connect'
+import { connectParent } from '@/lib/messaging/notify'
+import { parentBotCopy } from '@/lib/messaging/parent-bot'
 import { beginRegistration, handleRegisterCallback, handleRegisterMessage } from './flows/register'
 import { applyToJob, findCandidate } from '@/lib/candidates/store'
+import { supabaseAdmin } from '@/lib/supabase/admin'
 import { recordCommissionDecision } from '@/lib/hiring/service'
 import { markTalentApplied } from '@/lib/talent/service'
 
@@ -47,6 +51,15 @@ function register(bot: Bot) {
     // t.me/<bot>?start=job_12_3 — job 12, publication 3. The publication is
     // what tells us which channel this applicant came from.
     const payload = ctx.match?.toString().trim() || undefined
+
+    // A parent connecting is a different person from a tutor applying, and the
+    // two deep links share this one handler.
+    const parentId = parseParentPayload(payload)
+    if (parentId !== null) {
+      await handleParentConnect(ctx, parentId)
+      return
+    }
+
     const parsed = parseApplyPayload(payload)
 
     if (parsed?.publicationId) await countApply(parsed.publicationId)
@@ -130,6 +143,15 @@ function register(bot: Bot) {
   // Anything else has no free-text branch, so it goes back to the buttons.
   bot.on('message', async (ctx) => {
     if (await handleRegisterMessage(ctx)) return
+
+    // A parent gets Amharic and is told plainly that nobody reads a reply.
+    const { data: client } = await supabaseAdmin()
+      .from('clients').select('id').eq('telegram_id', ctx.from.id).maybeSingle()
+    if (client) {
+      await reply(ctx, parentBotCopy.nothingToReply)
+      return
+    }
+
     await reply(ctx, copy.menu, mainMenu())
   })
 
@@ -142,6 +164,29 @@ function register(bot: Bot) {
  * A job link, live or dead. A forwarded post or a screenshot from three weeks
  * ago must not dead-end: a filled link becomes a new applicant.
  */
+/**
+ * The parent's one tap. After this the bot may message them, which is what
+ * makes invoices and receipts automatic and free.
+ */
+async function handleParentConnect(ctx: Context, clientId: number) {
+  const db = supabaseAdmin()
+  const outcome = await connectParent(clientId, ctx.from!.id)
+
+  if (outcome === 'unknown') {
+    await reply(ctx, parentBotCopy.notFound)
+    return
+  }
+  if (outcome === 'already') {
+    await reply(ctx, parentBotCopy.alreadyConnected)
+    return
+  }
+
+  const { data: client } = await db
+    .from('clients').select('full_name').eq('id', clientId).maybeSingle()
+
+  await reply(ctx, parentBotCopy.connected(client?.full_name ?? ''))
+}
+
 /** An existing candidate applying to another job: no wizard, one tap. */
 async function applyAsExisting(
   ctx: Context,

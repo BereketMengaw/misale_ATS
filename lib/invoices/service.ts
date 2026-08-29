@@ -124,15 +124,10 @@ export async function queueInvoiceMessage(invoiceId: number, chase = false): Pro
     ? overdueAm(amount, inv.reference)
     : invoiceAm(amount, inv.reference, formatDateAm(new Date(`${inv.due_on}T00:00:00Z`)))
 
-  const { error } = await db.from('outbox').insert({
-    purpose: chase ? 'overdue' : 'invoice',
-    recipient: client?.full_name ?? 'Parent',
-    phone: client?.phone ?? null,
-    body,
-    invoice_id: inv.id,
-    client_id: inv.client_id,
-  })
-  if (error) return false
+  // Telegram if the parent has connected, the send queue if not.
+  const { notifyClient } = await import('@/lib/messaging/notify')
+  const sent = await notifyClient(inv.client_id, body, chase ? 'overdue' : 'invoice', inv.id)
+  if (sent.via === 'nowhere') return false
 
   if (!chase && inv.status === 'draft') {
     await db
