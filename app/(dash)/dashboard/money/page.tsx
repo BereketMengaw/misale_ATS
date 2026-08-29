@@ -51,6 +51,10 @@ export default async function MoneyPage() {
       {pending.length > 0 && (
         <section className="space-y-3 rounded-md border border-amber-300 bg-amber-50 p-4">
           <h2 className="text-sm font-medium text-amber-900">To send ({pending.length})</h2>
+          <p className="text-xs text-amber-800">
+            Nothing here sends itself. On your phone, &ldquo;Open in Messages&rdquo; fills in the
+            number and the text &mdash; you still tap send, from your own number.
+          </p>
           <ul className="space-y-3">
             {pending.map((m) => (
               <li key={m.id} className="rounded-md border border-amber-200 bg-white p-3">
@@ -68,7 +72,7 @@ export default async function MoneyPage() {
                       href={`sms:${m.phone}?body=${encodeURIComponent(m.body)}`}
                       className="rounded-md bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white"
                     >
-                      Send by SMS
+                      Open in Messages
                     </a>
                   )}
                   <form action={markSent}>

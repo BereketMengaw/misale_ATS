@@ -87,7 +87,7 @@ export async function ClientPanel({ jobId }: { jobId: number }) {
               href={`sms:${client.phone}?body=${encodeURIComponent(intro)}`}
               className="mt-2 inline-block rounded-md bg-green-700 px-4 py-1.5 text-xs font-medium text-white"
             >
-              Send by SMS
+              Open in Messages
             </a>
           )}
         </div>
