@@ -84,6 +84,7 @@ export async function regenerateJob(formData: FormData): Promise<void> {
     genderPref: job.gender_pref,
     startsOn: job.starts_on,
     notes: job.notes,
+    commissionPercent: Number(job.commission_percent),
   })
 
   await db

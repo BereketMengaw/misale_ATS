@@ -1,4 +1,5 @@
 import type { JobFields, PostDraft } from '../types'
+import { formatEtb, split, toCents } from '@/lib/money/commission'
 
 /**
  * The no-model provider, and the fallback for every other one.
@@ -42,6 +43,18 @@ function line(label: string, value: string | null): string | null {
   return value ? `${label} ${value}` : null
 }
 
+/**
+ * The channel post is read by tutors, so it advertises what a TUTOR receives —
+ * the rate the operator entered is what the PARENT pays, and the commission
+ * comes out of it. Advertising the parent's number and revealing the smaller
+ * one at the commission step would read as bait.
+ */
+function payLine(fields: JobFields): string {
+  const percent = fields.commissionPercent
+  if (percent == null || percent <= 0) return money(fields.rateAmount)
+  return formatEtb(split(fields.rateAmount, percent).netCents)
+}
+
 export function writePostTemplate(fields: JobFields): PostDraft {
   const hours = fields.hoursPerSession
   const notes = fields.notes?.trim() || null
@@ -53,7 +66,7 @@ export function writePostTemplate(fields: JobFields): PostDraft {
     line('Area:', fields.area),
     line('Days per week:', String(fields.daysPerWeek)),
     hours ? line('Per session:', `${hours} hour${hours === 1 ? '' : 's'}`) : null,
-    line('Pay:', `${money(fields.rateAmount)} ETB ${RATE_LABEL[fields.ratePeriod]}`),
+    line('Pay:', `${payLine(fields)} ETB ${RATE_LABEL[fields.ratePeriod]}`),
     line('Preferred:', GENDER_LABEL[fields.genderPref]),
     line('Starts:', humanDate(fields.startsOn)),
     '',

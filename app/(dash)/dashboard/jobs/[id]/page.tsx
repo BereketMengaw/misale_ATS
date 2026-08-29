@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { regenerateJob, saveBody, setApproval } from '../actions'
 import { PublishPanel } from './publish-panel'
+import { formatEtb, split } from '@/lib/money/commission'
 import { Applicants } from './applicants'
 
 export const dynamic = 'force-dynamic'
@@ -39,9 +40,13 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
             {job.subject} · {job.grade}
           </h1>
           <p className="text-sm text-neutral-500">
-            {job.area} · {job.days_per_week}×/week · {Number(job.rate_amount).toLocaleString()} ETB
-            {RATE_LABEL[job.rate_period] ?? ''} · {job.commission_percent}% commission
+            {job.area} · {job.days_per_week}×/week
           </p>
+          <Money
+            gross={Number(job.rate_amount)}
+            percent={Number(job.commission_percent)}
+            period={RATE_LABEL[job.rate_period] ?? ''}
+          />
         </div>
         <span
           className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${
@@ -103,6 +108,27 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
         </form>
       </details>
     </div>
+  )
+}
+
+/** Who gets what. The post advertises the tutor's number, so show all three. */
+function Money({ gross, percent, period }: { gross: number; percent: number; period: string }) {
+  const s = split(gross, percent)
+  return (
+    <dl className="mt-2 flex flex-wrap gap-x-6 gap-y-1 text-sm">
+      <div className="flex gap-2">
+        <dt className="text-neutral-500">Parent pays</dt>
+        <dd className="font-medium tabular-nums">{formatEtb(s.grossCents)} ETB{period}</dd>
+      </div>
+      <div className="flex gap-2">
+        <dt className="text-neutral-500">Tutor gets</dt>
+        <dd className="font-medium tabular-nums">{formatEtb(s.netCents)} ETB{period}</dd>
+      </div>
+      <div className="flex gap-2">
+        <dt className="text-neutral-500">You keep ({percent}%)</dt>
+        <dd className="font-medium tabular-nums text-green-800">{formatEtb(s.commissionCents)} ETB{period}</dd>
+      </div>
+    </dl>
   )
 }
 

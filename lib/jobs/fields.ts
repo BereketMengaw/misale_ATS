@@ -67,5 +67,6 @@ export function toAiFields(values: JobFormValues): JobFields {
     genderPref: values.genderPref,
     startsOn: values.startsOn ?? null,
     notes: values.notes ?? null,
+    commissionPercent: values.commissionPercent,
   }
 }

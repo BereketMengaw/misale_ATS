@@ -13,6 +13,7 @@ const base: JobFields = {
   genderPref: 'any',
   startsOn: '2026-09-15',
   notes: null,
+  commissionPercent: 0,
 }
 
 describe('template post writer', () => {
@@ -58,6 +59,20 @@ describe('template post writer', () => {
   it('says hour, not hours, for a one-hour session', () => {
     expect(writePostTemplate({ ...base, hoursPerSession: 1 }).body).toContain('1 hour\n')
     expect(writePostTemplate({ ...base, hoursPerSession: 2 }).body).toContain('2 hours')
+  })
+
+  it('advertises what the tutor receives, not what the parent pays', () => {
+    // The operator enters the parent's rate; 20% of 4,500 is 900.
+    const { body } = writePostTemplate({ ...base, rateAmount: 4500, commissionPercent: 20 })
+    expect(body).toContain('3,600 ETB per month')
+    expect(body).not.toContain('4,500')
+  })
+
+  it('shows the entered rate when there is no commission', () => {
+    expect(writePostTemplate({ ...base, rateAmount: 4500, commissionPercent: 0 }).body)
+      .toContain('4,500 ETB')
+    expect(writePostTemplate({ ...base, rateAmount: 4500, commissionPercent: null }).body)
+      .toContain('4,500 ETB')
   })
 
   it('includes the operator note when given', () => {

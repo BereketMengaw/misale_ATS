@@ -10,6 +10,8 @@ export type JobFields = {
   genderPref: 'any' | 'female' | 'male'
   startsOn?: string | null
   notes?: string | null
+  /** The agency's share, taken out of the advertised rate. */
+  commissionPercent?: number | null
 }
 
 export type PostDraft = {
