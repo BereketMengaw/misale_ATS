@@ -32,6 +32,9 @@ export default async function DashLayout({ children }: { children: React.ReactNo
             <Link href="/dashboard/candidates" className="hover:text-neutral-900">
               Candidates
             </Link>
+            <Link href="/dashboard/placements" className="hover:text-neutral-900">
+              Placements
+            </Link>
             <Link href="/dashboard/channels" className="hover:text-neutral-900">
               Channels
             </Link>

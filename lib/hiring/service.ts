@@ -221,13 +221,17 @@ export async function hireCandidate(applicationId: number, operatorId: string | 
     })
     .eq('id', job.id)
 
-  // 2. Tell the tutor who got it.
+  // 2. The placement: the figures as agreed, frozen away from later edits.
+  const { createPlacementFromHire } = await import('@/lib/placements/service')
+  await createPlacementFromHire(applicationId)
+
+  // 3. Tell the tutor who got it.
   await tell(
     candidate?.chat_id ?? null,
     hired(job, parentName, job.commission_percent, release, client?.phone ?? null),
   )
 
-  // 3. Close out everyone else. Nobody is left waiting on a reply that never comes.
+  // 4. Close out everyone else. Nobody is left waiting on a reply that never comes.
   const { data: others } = await db
     .from('applications')
     .select('id, status, candidates(chat_id)')
@@ -253,7 +257,7 @@ export async function hireCandidate(applicationId: number, operatorId: string | 
       .eq('id', other.id)
   }
 
-  // 4. Rewrite every channel post in place: it keeps its views and position.
+  // 5. Rewrite every channel post in place: it keeps its views and position.
   const posts = await markPostsFilled(job.id)
 
   return {
