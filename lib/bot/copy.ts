@@ -13,7 +13,7 @@ export const copy = {
 
   menu: 'What would you like to do?',
 
-  applyingFor: "You're applying for:",
+  applyingFor: 'This job:',
   applyNext: 'Tap below to continue. The whole registration is buttons.',
 
   jobFilled: 'Sorry — this position has been filled. Here is what is open now.',
@@ -31,7 +31,7 @@ export const copy = {
     ].join('\n'),
     consentDeclined: 'No problem. Nothing has been saved. The open jobs are still here whenever you want them.',
 
-    name: (name: string) => `Is your name **${name}**?`,
+    name: (name: string) => `Is your name ${name}?`,
     nameTypeIt: 'Send me your full name as one message.',
     nameTooShort: 'That looks too short. Send your full name as one message.',
 
@@ -42,6 +42,7 @@ export const copy = {
       "Can't see the button? Just type your number instead, like 0911234567.",
     ].join('\n'),
     phoneConfirmed: (national: string) => `Got it — ${national}.`,
+    phoneShared: 'Thanks.',
     phoneWrongPerson: 'That is someone else\'s contact. Tap the button to share your own.',
 
     gender: 'Some families ask for a female or male tutor. Which are you?',
@@ -71,9 +72,50 @@ export const copy = {
         ? `You're registered, and your application for ${applied} is in.\n\nWe will message you here if you are shortlisted. You do not need to do anything else.`
         : "You're registered.\n\nWe will message you here when a job suits you. You do not need to do anything else.",
 
+    staleTap: 'You already answered that one.',
+
+    /** An answered step collapses to this, so the chat reads as a record. */
+    answered: (label: string, value: string) => `✓ ${label} — ${value}`,
+    answeredConsent: '✓ Agreed — we may keep your details and message you about jobs',
+    answeredCvSkipped: '✓ CV — skipped',
+    answeredCvSaved: '✓ CV — received',
+
     alreadyApplied: (job: string) => `You have already applied for ${job}. We will message you here if you are shortlisted.`,
     resume: 'Picking up where you left off.',
   },
+
+  profile: {
+    none: 'You have not registered yet. It takes a couple of minutes, and it is all buttons.',
+    title: 'Your profile',
+    cvYes: 'received',
+    cvNo: 'not sent',
+    complete: 'Nothing missing.',
+    gaps: (list: string) => `Still missing: ${list}.`,
+    fix: 'Registering again replaces what is here.',
+  },
+
+  /**
+   * Sent with parse_mode HTML. It is a fixed string with nothing interpolated
+   * into it, so the tags are safe; do not add a `${}` here without escaping.
+   */
+  faq: [
+    '<b>How this works</b>',
+    '',
+    '<b>How do I get a job?</b>',
+    'Apply to anything open. We rank everyone who applied, ask the best few to accept the terms, and the family picks from those who accept.',
+    '',
+    '<b>What am I paid?</b>',
+    'The figure in an offer is yours to keep. Our fee is already taken out of it — the family pays more than you see, and you never send us that part.',
+    '',
+    '<b>What is the pre-payment?</b>',
+    'A one-off amount due to us before your first lesson, equal to one period of our fee. It is on top of the fee taken from each payment, not instead of it. The exact figure is always in the offer, before you accept.',
+    '',
+    '<b>When do I hear back?</b>',
+    'Only if you are shortlisted, and always here. There is nothing to chase.',
+    '',
+    '<b>Can I reply to this chat?</b>',
+    'Nobody reads replies. Everything is a button — if there is no button for it, it is not something that happens here.',
+  ].join('\n'),
 
   buttons: {
     openJobs: 'Open jobs',
@@ -90,5 +132,7 @@ export const copy = {
     done: 'Done',
     skip: 'Skip this',
     other: 'Somewhere else',
+    back: '← Back',
+    registerAgain: 'Register again',
   },
 } as const

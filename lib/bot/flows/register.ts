@@ -3,10 +3,10 @@ import { copy } from '../copy'
 import { getSession, saveSession } from '../session'
 import { logMessage } from '../log'
 import { getJob } from '../jobs'
-import { nextStep, progress, type RegisterStep } from './steps'
+import { nextStep, ownsStep, prevStep, progress, STEP_LABEL, type RegisterStep } from './steps'
 import {
   DAYS, DEFAULT_AREAS, DEFAULT_SUBJECTS, EDUCATION, EXPERIENCE,
-  GENDERS, GRADE_BANDS, RATE_BANDS, SLOTS, type Option,
+  GENDERS, GRADE_BANDS, labelFor, RATE_BANDS, SLOTS, type Option,
 } from '@/lib/candidates/options'
 import { applyToJob, saveCandidate, storeCv, type Draft } from '@/lib/candidates/store'
 import { normalizePhone, phoneProblem } from '@/lib/candidates/phone'
@@ -57,68 +57,148 @@ async function say(ctx: Context, text: string, keyboard?: InlineKeyboard | Keybo
   })
 }
 
-/** Ask one step. Every prompt carries "Step n of 13" so the end is visible. */
-export async function askStep(ctx: Context, step: RegisterStep, draft: Draft) {
+/** A step's prompt: the words, and whichever kind of keyboard it needs. */
+type Prompt = { text: string; inline?: InlineKeyboard; reply?: Keyboard }
+
+/** Every step that has somewhere to go back to gets a way back. */
+function withBack(kb: InlineKeyboard, step: RegisterStep): InlineKeyboard {
+  return prevStep(step) ? kb.row().text(copy.buttons.back, 'reg:nav:back') : kb
+}
+
+function promptFor(ctx: Context, step: RegisterStep, draft: Draft): Prompt {
   const head = `${progress(step)}\n\n`
 
   switch (step) {
     case 'consent':
-      return say(ctx, head + copy.reg.consent, new InlineKeyboard()
-        .text(copy.buttons.agree, 'reg:consent:yes').row()
-        .text(copy.buttons.decline, 'reg:consent:no'))
+      return {
+        text: head + copy.reg.consent,
+        inline: new InlineKeyboard()
+          .text(copy.buttons.agree, 'reg:consent:yes').row()
+          .text(copy.buttons.decline, 'reg:consent:no'),
+      }
 
     case 'name': {
       const guess = [ctx.from?.first_name, ctx.from?.last_name].filter(Boolean).join(' ').trim()
-      if (!guess) return say(ctx, head + copy.reg.nameTypeIt)
-      return say(ctx, head + copy.reg.name(guess), new InlineKeyboard()
-        .text(copy.buttons.nameYes, 'reg:name:keep').row()
-        .text(copy.buttons.nameNo, 'reg:name:type'))
+      if (!guess) return { text: head + copy.reg.nameTypeIt, inline: withBack(new InlineKeyboard(), 'name') }
+      return {
+        text: head + copy.reg.name(guess),
+        inline: withBack(
+          new InlineKeyboard()
+            .text(copy.buttons.nameYes, 'reg:name:keep').row()
+            .text(copy.buttons.nameNo, 'reg:name:type'),
+          'name',
+        ),
+      }
     }
 
     case 'phone':
       // request_contact only exists on a reply keyboard, never inline.
-      return say(ctx, head + copy.reg.phone,
-        new Keyboard().requestContact(copy.buttons.sharePhone).resized().oneTime())
+      return {
+        text: head + copy.reg.phone,
+        reply: new Keyboard().requestContact(copy.buttons.sharePhone).resized().oneTime(),
+      }
 
     case 'gender':
-      return say(ctx, head + copy.reg.gender, singleSelect(GENDERS, 'reg:gender'))
+      return { text: head + copy.reg.gender, inline: withBack(singleSelect(GENDERS, 'reg:gender'), step) }
 
     case 'area':
-      return say(ctx, head + copy.reg.area, singleSelect(
-        [...DEFAULT_AREAS.map((a) => ({ value: a, label: a })), { value: '__other', label: copy.buttons.other }],
-        'reg:area',
-      ))
+      return {
+        text: head + copy.reg.area,
+        inline: withBack(singleSelect(
+          [...DEFAULT_AREAS.map((a) => ({ value: a, label: a })), { value: '__other', label: copy.buttons.other }],
+          'reg:area',
+        ), step),
+      }
 
     case 'education':
-      return say(ctx, head + copy.reg.education, singleSelect(EDUCATION, 'reg:education'))
+      return { text: head + copy.reg.education, inline: withBack(singleSelect(EDUCATION, 'reg:education'), step) }
 
     case 'subjects':
-      return say(ctx, head + copy.reg.subjects, multiSelect(
-        DEFAULT_SUBJECTS.map((s) => ({ value: s, label: s })), draft.subjects ?? [], 'reg:subject',
-      ))
+      return {
+        text: head + copy.reg.subjects,
+        inline: withBack(multiSelect(
+          DEFAULT_SUBJECTS.map((x) => ({ value: x, label: x })), draft.subjects ?? [], 'reg:subject',
+        ), step),
+      }
 
     case 'grades':
-      return say(ctx, head + copy.reg.grades, multiSelect(GRADE_BANDS, draft.grades ?? [], 'reg:grade'))
+      return { text: head + copy.reg.grades, inline: withBack(multiSelect(GRADE_BANDS, draft.grades ?? [], 'reg:grade'), step) }
 
     case 'days':
-      return say(ctx, head + copy.reg.days, multiSelect(DAYS, draft.days ?? [], 'reg:day', 4))
+      return { text: head + copy.reg.days, inline: withBack(multiSelect(DAYS, draft.days ?? [], 'reg:day', 4), step) }
 
     case 'times':
-      return say(ctx, head + copy.reg.times, multiSelect(SLOTS, draft.times ?? [], 'reg:time', 3))
+      return { text: head + copy.reg.times, inline: withBack(multiSelect(SLOTS, draft.times ?? [], 'reg:time', 3), step) }
 
     case 'experience':
-      return say(ctx, head + copy.reg.experience, singleSelect(EXPERIENCE, 'reg:experience', 1))
+      return { text: head + copy.reg.experience, inline: withBack(singleSelect(EXPERIENCE, 'reg:experience', 1), step) }
 
     case 'rate':
-      return say(ctx, head + copy.reg.rate, singleSelect(RATE_BANDS, 'reg:rate', 1))
+      return { text: head + copy.reg.rate, inline: withBack(singleSelect(RATE_BANDS, 'reg:rate', 1), step) }
 
     case 'cv':
-      return say(ctx, head + copy.reg.cv, new InlineKeyboard().text(copy.buttons.skip, 'reg:cv:skip'))
+      return {
+        text: head + copy.reg.cv,
+        inline: withBack(new InlineKeyboard().text(copy.buttons.skip, 'reg:cv:skip'), step),
+      }
   }
+}
+
+/** Ask one step. Every prompt carries "Step n of 13" so the end is visible. */
+export async function askStep(ctx: Context, step: RegisterStep, draft: Draft) {
+  const prompt = promptFor(ctx, step, draft)
+  return say(ctx, prompt.text, prompt.inline ?? prompt.reply)
+}
+
+/** Re-draw the tapped message instead of adding another one below it. */
+async function askStepInPlace(ctx: Context, step: RegisterStep, draft: Draft) {
+  const prompt = promptFor(ctx, step, draft)
+  // A reply keyboard cannot be edited into an existing message.
+  if (!prompt.inline) return askStep(ctx, step, draft)
+  try {
+    await ctx.editMessageText(prompt.text, { reply_markup: prompt.inline })
+  } catch {
+    await askStep(ctx, step, draft)
+  }
+}
+
+/** What an answered step is worth once it is answered. */
+function answerLine(step: RegisterStep, draft: Draft): string {
+  const label = STEP_LABEL[step]
+  const list = (values: string[] | undefined, options?: Option[]) =>
+    (values ?? []).map((v) => (options ? labelFor(options, v) : v)).join(', ')
+
+  switch (step) {
+    case 'consent': return copy.reg.answeredConsent
+    case 'name': return copy.reg.answered(label, draft.fullName ?? '—')
+    case 'phone': return copy.reg.answered(label, draft.phone ?? '—')
+    case 'gender': return copy.reg.answered(label, labelFor(GENDERS, draft.gender))
+    case 'area': return copy.reg.answered(label, draft.area ?? '—')
+    case 'education': return copy.reg.answered(label, labelFor(EDUCATION, draft.education))
+    case 'subjects': return copy.reg.answered(label, list(draft.subjects))
+    case 'grades': return copy.reg.answered(label, list(draft.grades, GRADE_BANDS))
+    case 'days': return copy.reg.answered(label, list(draft.days, DAYS))
+    case 'times': return copy.reg.answered(label, list(draft.times, SLOTS))
+    case 'experience': return copy.reg.answered(label, labelFor(EXPERIENCE, draft.experience))
+    case 'rate': return copy.reg.answered(label, labelFor(RATE_BANDS, String(draft.expectedRate ?? '')))
+    case 'cv': return draft.cvPath ? copy.reg.answeredCvSaved : copy.reg.answeredCvSkipped
+  }
+}
+
+/**
+ * Collapse the step that was just answered into one line with no live buttons.
+ *
+ * Thirteen steps used to leave thirteen open forms in the chat. What is left
+ * now is a record of the answers, and only the current question can be tapped.
+ */
+async function settle(ctx: Context, step: RegisterStep, draft: Draft) {
+  if (!ctx.callbackQuery) return
+  await ctx.editMessageText(answerLine(step, draft)).catch(() => {})
 }
 
 /** Move to the next step, or finish. */
 async function advance(ctx: Context, step: RegisterStep, sess: Sess) {
+  await settle(ctx, step, sess.draft)
   const telegramId = ctx.from!.id
   const chatId = ctx.chat!.id
   const next = nextStep(step)
@@ -175,6 +255,23 @@ export async function handleRegisterCallback(ctx: Context, field: string, value:
   const sess = sessionOf(session.data)
   const step = session.step as RegisterStep
   const draft = sess.draft
+
+  // One step back, redrawn in place.
+  if (field === 'nav') {
+    await ctx.answerCallbackQuery()
+    const back = prevStep(step)
+    if (!back) return true
+    await saveSession(ctx.from!.id, ctx.chat!.id, { flow: 'register', step: back, data: { draft } })
+    await askStepInPlace(ctx, back, draft)
+    return true
+  }
+
+  // A button from a step already answered must not write its value and then
+  // advance from wherever the wizard is now — that skipped the step on screen.
+  if (!ownsStep(step, field)) {
+    await ctx.answerCallbackQuery({ text: copy.reg.staleTap })
+    return true
+  }
 
   const stay = async (message?: string) => {
     await ctx.answerCallbackQuery(message ? { text: message } : undefined)
@@ -268,7 +365,7 @@ export async function handleRegisterCallback(ctx: Context, field: string, value:
         : SLOTS
       const perRow = field === 'day' ? 4 : field === 'time' ? 3 : 2
       await ctx.editMessageReplyMarkup({
-        reply_markup: multiSelect(options, draft[key] ?? [], `reg:${field}`, perRow),
+        reply_markup: withBack(multiSelect(options, draft[key] ?? [], `reg:${field}`, perRow), step),
       })
       return true
     }
@@ -276,7 +373,8 @@ export async function handleRegisterCallback(ctx: Context, field: string, value:
     case 'cv':
       if (value === 'skip') {
         await ctx.answerCallbackQuery()
-        await finish(ctx, sess)
+        // Through advance, so the step collapses like every other one.
+        await advance(ctx, 'cv', sess)
         return true
       }
       return false
@@ -311,7 +409,7 @@ export async function handleRegisterMessage(ctx: Context): Promise<boolean> {
       draft.phone = shared.ok ? shared.e164 : msg.contact.phone_number
       await saveSession(ctx.from!.id, ctx.chat!.id, { data: { draft } })
       // Take the reply keyboard away; everything after this is inline buttons.
-      await ctx.reply('Thanks.', { reply_markup: { remove_keyboard: true } })
+      await ctx.reply(copy.reg.phoneShared, { reply_markup: { remove_keyboard: true } })
       await advance(ctx, 'phone', sess)
       return true
     }

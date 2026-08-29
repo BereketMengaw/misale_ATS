@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { nextStep, progress, REGISTER_STEPS, stepNumber, TOTAL_STEPS } from '@/lib/bot/flows/steps'
+import { nextStep, ownsStep, prevStep, progress, REGISTER_STEPS, stepNumber, STEP_FIELD, STEP_LABEL, TOTAL_STEPS } from '@/lib/bot/flows/steps'
 
 describe('wizard steps', () => {
   it('walks from the first step to the last without a gap', () => {
@@ -28,5 +28,40 @@ describe('wizard steps', () => {
     expect(stepNumber('consent')).toBe(1)
     expect(stepNumber(REGISTER_STEPS[TOTAL_STEPS - 1])).toBe(TOTAL_STEPS)
     expect(progress('consent')).toBe(`Step 1 of ${TOTAL_STEPS}`)
+  })
+})
+
+describe('a tap has to belong to the step it lands on', () => {
+  it('matches each step to the field its buttons send', () => {
+    expect(ownsStep('gender', 'gender')).toBe(true)
+    expect(ownsStep('subjects', 'subject')).toBe(true)
+    expect(ownsStep('grades', 'grade')).toBe(true)
+    expect(ownsStep('days', 'day')).toBe(true)
+    expect(ownsStep('times', 'time')).toBe(true)
+  })
+
+  it('rejects a tap left over from an earlier step', () => {
+    // The bug: on step "subjects", an old "Female" button wrote gender and
+    // advanced past subjects, losing the answer that was on screen.
+    expect(ownsStep('subjects', 'gender')).toBe(false)
+    expect(ownsStep('rate', 'education')).toBe(false)
+    expect(ownsStep('cv', 'area')).toBe(false)
+  })
+
+  it('walks backwards as well as forwards, and stops at both ends', () => {
+    expect(prevStep('consent')).toBeNull()
+    expect(prevStep('name')).toBe('consent')
+    expect(prevStep('cv')).toBe('rate')
+    expect(nextStep('cv')).toBeNull()
+    for (const step of REGISTER_STEPS.slice(1)) {
+      expect(nextStep(prevStep(step)!)).toBe(step)
+    }
+  })
+
+  it('has a label and a field for every step, with no gaps', () => {
+    for (const step of REGISTER_STEPS) {
+      expect(STEP_LABEL[step]).toBeTruthy()
+      expect(STEP_FIELD[step]).toBeTruthy()
+    }
   })
 })

@@ -143,3 +143,15 @@ export async function storeCv(
   }
   return path
 }
+
+/** Everything "My profile" shows. One read, no scoring. */
+export async function candidateProfile(telegramId: number) {
+  const { data } = await supabaseAdmin()
+    .from('candidates')
+    .select(
+      'id, full_name, phone, area, education, experience, subjects, grades, availability, expected_rate, cv_path, completeness',
+    )
+    .eq('telegram_id', telegramId)
+    .maybeSingle()
+  return data
+}

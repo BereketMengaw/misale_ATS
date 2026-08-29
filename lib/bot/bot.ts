@@ -1,7 +1,7 @@
 import { Bot, type Context, type InlineKeyboard } from 'grammy'
 import { env } from '@/lib/env'
 import { copy } from './copy'
-import { applyKeyboard, mainMenu, openJobsKeyboard } from './keyboards'
+import { applyKeyboard, backKeyboard, mainMenu, openJobsKeyboard, profileKeyboard, registerKeyboard } from './keyboards'
 import { getSession, saveSession } from './session'
 import { logMessage } from './log'
 import { countApply, getJob, isLive, listOpenJobs } from './jobs'
@@ -10,7 +10,10 @@ import { parseAdminPayload, parseParentPayload } from '@/lib/messaging/connect'
 import { connectParent } from '@/lib/messaging/notify'
 import { parentBotCopy } from '@/lib/messaging/parent-bot'
 import { beginRegistration, handleRegisterCallback, handleRegisterMessage } from './flows/register'
-import { applyToJob, findCandidate } from '@/lib/candidates/store'
+import { applyToJob, candidateProfile, findCandidate } from '@/lib/candidates/store'
+import { DAYS, EDUCATION, EXPERIENCE, labelFor, SLOTS } from '@/lib/candidates/options'
+import { missingFields } from '@/lib/candidates/completeness'
+import type { Availability } from '@/lib/candidates/availability'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { recordCommissionDecision } from '@/lib/hiring/service'
 import { markTalentApplied } from '@/lib/talent/service'
@@ -87,6 +90,14 @@ function register(bot: Bot) {
     await reply(ctx, `${copy.welcome}\n\n${copy.menu}`, mainMenu())
   })
 
+  bot.command('menu', async (ctx) => {
+    await reply(ctx, copy.menu, mainMenu())
+  })
+
+  bot.command('help', async (ctx) => {
+    await reply(ctx, copy.faq, backKeyboard(), 'HTML')
+  })
+
   // Wizard buttons: reg:<field>:<value>. Registered first so the generic
   // handlers below never swallow a step mid-flow.
   bot.callbackQuery(/^reg:([a-z]+):(.+)$/, async (ctx) => {
@@ -141,6 +152,22 @@ function register(bot: Bot) {
     await reply(ctx, copy.menu, mainMenu())
   })
 
+  bot.callbackQuery('menu:jobs', async (ctx) => {
+    await ctx.answerCallbackQuery()
+    await showOpenJobs(ctx)
+  })
+
+  bot.callbackQuery('menu:profile', async (ctx) => {
+    await ctx.answerCallbackQuery()
+    await showProfile(ctx)
+  })
+
+  bot.callbackQuery('menu:faq', async (ctx) => {
+    await ctx.answerCallbackQuery()
+    await reply(ctx, copy.faq, backKeyboard(), 'HTML')
+  })
+
+  // Anything else under menu: is a button that no longer exists.
   bot.callbackQuery(/^menu:(.+)$/, async (ctx) => {
     await ctx.answerCallbackQuery({ text: copy.notReadyYet })
   })
@@ -249,8 +276,64 @@ async function showJob(ctx: Context, jobId: number) {
   await reply(ctx, `${copy.applyingFor}\n\n${job.body}\n\n${copy.applyNext}`, applyKeyboard(job.id))
 }
 
-async function reply(ctx: Context, text: string, keyboard?: InlineKeyboard) {
-  await ctx.reply(text, keyboard ? { reply_markup: keyboard } : undefined)
+/** The live jobs, or an honest empty state that still offers a way forward. */
+async function showOpenJobs(ctx: Context) {
+  const open = await listOpenJobs()
+  if (open.length === 0) {
+    await reply(ctx, copy.noOpenJobs, registerKeyboard())
+    return
+  }
+  await reply(ctx, copy.menu, openJobsKeyboard(open))
+}
+
+/**
+ * What we hold on them, in their own words. Read-only: the wizard is the only
+ * way to change it, so there is no field here that invites a typed answer.
+ */
+async function showProfile(ctx: Context) {
+  const c = await candidateProfile(ctx.from!.id)
+  if (!c) {
+    await reply(ctx, copy.profile.none, registerKeyboard())
+    return
+  }
+
+  const availability = (c.availability ?? {}) as Availability
+  const days = DAYS.filter((d) => availability[d.value]?.length)
+  const slots = [...new Set(Object.values(availability).flat())]
+
+  const gaps = missingFields({
+    fullName: c.full_name, phone: c.phone, area: c.area, education: c.education,
+    subjects: c.subjects, grades: c.grades, availability, experience: c.experience,
+    expectedRate: c.expected_rate, cvPath: c.cv_path,
+  })
+
+  const lines = [
+    copy.profile.title,
+    '',
+    `Name — ${c.full_name ?? '—'}`,
+    `Phone — ${c.phone ?? '—'}`,
+    `Area — ${c.area ?? '—'}`,
+    `Education — ${labelFor(EDUCATION, c.education)}`,
+    `Experience — ${labelFor(EXPERIENCE, c.experience)}`,
+    `Subjects — ${(c.subjects ?? []).join(', ') || '—'}`,
+    `Grades — ${(c.grades ?? []).join(', ') || '—'}`,
+    `Days — ${days.map((d) => d.label).join(', ') || '—'}`,
+    `Times — ${slots.map((v) => labelFor(SLOTS, v)).join(', ') || '—'}`,
+    `CV — ${c.cv_path ? copy.profile.cvYes : copy.profile.cvNo}`,
+    '',
+    `Profile ${c.completeness}% complete`,
+    gaps.length > 0 ? copy.profile.gaps(gaps.join(', ')) : copy.profile.complete,
+    copy.profile.fix,
+  ]
+
+  await reply(ctx, lines.join('\n'), profileKeyboard())
+}
+
+async function reply(ctx: Context, text: string, keyboard?: InlineKeyboard, parseMode?: 'HTML') {
+  await ctx.reply(text, {
+    ...(keyboard ? { reply_markup: keyboard } : {}),
+    ...(parseMode ? { parse_mode: parseMode } : {}),
+  })
   await logMessage({
     direction: 'out',
     telegramId: ctx.from?.id,

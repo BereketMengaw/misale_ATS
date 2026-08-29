@@ -22,6 +22,14 @@ await bot.api.setWebhook(url, {
   allowed_updates: ['message', 'callback_query', 'my_chat_member', 'channel_post'],
 })
 
+// The ☰ menu in Telegram. Without this the commands work but are invisible,
+// so the only way back to the buttons is remembering to type /start.
+await bot.api.setMyCommands([
+  { command: 'menu', description: 'Open jobs, register, your profile' },
+  { command: 'help', description: 'How this works' },
+  { command: 'start', description: 'Start again' },
+])
+
 const info = await bot.api.getWebhookInfo()
 console.log('Webhook set:', info.url)
 console.log('Pending updates:', info.pending_update_count)

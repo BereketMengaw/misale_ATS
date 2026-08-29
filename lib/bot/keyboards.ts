@@ -17,6 +17,28 @@ export function mainMenu(): InlineKeyboard {
     .text(b.faq, 'menu:faq')
 }
 
+/** Anywhere that has nothing to do but go back. */
+export function backKeyboard(): InlineKeyboard {
+  return new InlineKeyboard().text(copy.buttons.backToMenu, 'menu:main')
+}
+
+/** No profile yet: the only useful thing is to start one. */
+export function registerKeyboard(): InlineKeyboard {
+  return new InlineKeyboard()
+    .text(copy.buttons.register, 'menu:register')
+    .row()
+    .text(copy.buttons.backToMenu, 'menu:main')
+}
+
+/** A profile that exists: read it, or replace it. */
+export function profileKeyboard(): InlineKeyboard {
+  return new InlineKeyboard()
+    .text(copy.buttons.registerAgain, 'menu:register')
+    .row()
+    .text(copy.buttons.openJobs, 'menu:jobs')
+    .text(copy.buttons.backToMenu, 'menu:main')
+}
+
 /** After arriving on a job deep link. One button forward, one back. */
 export function applyKeyboard(jobId: number): InlineKeyboard {
   return new InlineKeyboard()
