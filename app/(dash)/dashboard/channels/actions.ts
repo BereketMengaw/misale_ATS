@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { supabaseAdmin } from '@/lib/supabase/admin'
-import { checkChannel } from '@/lib/telegram/publish'
+import { checkChannel, type ChannelCheck } from '@/lib/telegram/publish'
 
 export type ChannelFormState = { error?: string; ok?: string }
 
@@ -19,27 +19,35 @@ export async function addChannel(
 
   if (!target && !fallbackTitle) return { error: 'Give a @username, a chat id, or a name.' }
 
-  const check = target ? await checkChannel(target) : { ok: false, detail: 'Manual channel.' }
+  // Nothing past here may throw: a server action that throws shows the operator
+  // a blank failure instead of a reason.
+  try {
+    const check: ChannelCheck = target
+      ? await checkChannel(target)
+      : { ok: false, detail: 'Added by name only — the bot was never asked about it.' }
 
-  const { error } = await supabaseAdmin()
-    .from('channels')
-    .insert({
-      title: check.title ?? fallbackTitle ?? target,
-      chat_id: check.chatId ?? null,
-      username: check.username ?? (target.startsWith('@') ? target.slice(1) : null),
-      kind: check.ok ? 'bot_admin' : 'manual',
-      last_check_at: new Date().toISOString(),
-      last_check_ok: check.ok,
-      last_check_detail: check.detail,
-    })
+    const { error } = await supabaseAdmin()
+      .from('channels')
+      .insert({
+        title: check.title ?? fallbackTitle ?? target,
+        chat_id: check.chatId ?? null,
+        username: check.username ?? (target.startsWith('@') ? target.slice(1) : null),
+        kind: check.ok ? 'bot_admin' : 'manual',
+        last_check_at: new Date().toISOString(),
+        last_check_ok: check.ok,
+        last_check_detail: check.detail,
+      })
 
-  if (error) return { error: error.message }
+    if (error) return { error: `Could not save it: ${error.message}` }
 
-  revalidatePath('/dashboard/channels')
-  return {
-    ok: check.ok
-      ? 'Added. The bot can post here automatically.'
-      : `Added as a manual channel — ${check.detail}`,
+    revalidatePath('/dashboard/channels')
+    return {
+      ok: check.ok
+        ? `Added. ${check.detail}`
+        : `Added, but you will have to post by hand — ${check.detail}`,
+    }
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : String(err) }
   }
 }
 

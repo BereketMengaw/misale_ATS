@@ -21,12 +21,14 @@ export type ChannelCheck = {
  * discovered by a failed send, and re-asked from the channels page.
  */
 export async function checkChannel(target: string): Promise<ChannelCheck> {
-  const bot = await getBot()
-  const chatRef = /^-?\d+$/.test(target.trim())
-    ? Number(target.trim())
-    : `@${target.trim().replace(/^@/, '')}`
-
+  // getBot() reads the token and calls getMe, so it can throw. Keep it inside
+  // the try: a thrown error here escapes the server action and the operator
+  // sees a blank failure instead of the reason.
   try {
+    const bot = await getBot()
+    const trimmed = target.trim()
+    const chatRef = /^-?\d+$/.test(trimmed) ? Number(trimmed) : `@${trimmed.replace(/^@/, '')}`
+
     const chat = await bot.api.getChat(chatRef)
     if (chat.type !== 'channel' && chat.type !== 'supergroup' && chat.type !== 'group') {
       return { ok: false, detail: `That is a ${chat.type} chat — jobs go to a channel or a group.` }
