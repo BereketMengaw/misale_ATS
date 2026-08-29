@@ -5,6 +5,7 @@ import { describeCost } from '@/lib/messaging/sms'
 import { GenerateForm } from './generate-form'
 import { markPaid, markSent, queueMessage } from './actions'
 import { CopyBox } from '../jobs/[id]/copy-box'
+import { Unmatched } from './unmatched'
 
 export const dynamic = 'force-dynamic'
 
@@ -42,6 +43,8 @@ export default async function MoneyPage() {
         <Stat label="Your commission, paid" value={`${formatEtb(yours)} ETB`} tone="text-green-800" />
         <Stat label="Waiting to send" value={String(pending.length)} tone={pending.length ? 'text-amber-700' : undefined} />
       </div>
+
+      <Unmatched />
 
       {/* The send queue: written by the system, sent by you. */}
       {pending.length > 0 && (

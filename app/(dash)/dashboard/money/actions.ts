@@ -38,3 +38,24 @@ export async function markSent(formData: FormData): Promise<void> {
   if (outboxId) await markOutboxSent(outboxId)
   revalidatePath('/dashboard/money')
 }
+
+/** Attach an unmatched payment to an invoice. One tap. */
+export async function attachToInvoice(formData: FormData): Promise<void> {
+  const paymentId = Number(formData.get('paymentId'))
+  const invoiceId = Number(formData.get('invoiceId'))
+  if (!paymentId || !invoiceId) return
+
+  const { attachPayment } = await import('@/lib/payments/service')
+  await attachPayment(paymentId, invoiceId)
+  revalidatePath('/dashboard/money')
+}
+
+/** Not money for us — a refund, or a transfer between the operator's accounts. */
+export async function dismiss(formData: FormData): Promise<void> {
+  const paymentId = Number(formData.get('paymentId'))
+  if (!paymentId) return
+
+  const { dismissPayment } = await import('@/lib/payments/service')
+  await dismissPayment(paymentId)
+  revalidatePath('/dashboard/money')
+}
