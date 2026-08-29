@@ -5,7 +5,7 @@
 | Who | What happens |
 |---|---|
 | **Operator** | Answers a few questions: subject, grade, area, days per week, pay. |
-| System | Writes a clean job post in Amharic and English, publishes it to the Telegram channels. |
+| System | Writes a clean job post, publishes it to the Telegram channels. |
 | Tutors | Tap **Apply** on the post; the bot opens in their private chat. |
 | System | Runs a button-driven registration, takes the CV, scores each applicant against the job. |
 | **Operator** | Sees the top 3 with score breakdowns on the dashboard. Can ask for 5 more. Picks one. |
@@ -39,7 +39,7 @@ Lifecycle: `draft → open → closed_filled | closed_cancelled | expired`. On h
 happen automatically:
 
 1. **Every channel post is edited in place** via the stored `message_id` — it keeps its views and
-   position but now reads **ተይዟል / FILLED** with the Apply button removed.
+   position but now reads **FILLED** with the Apply button removed.
 2. **The deep link stops accepting applications.** Old links, forwarded copies and screenshots get
    "this position has been filled — here is what's open now", with buttons for live jobs. A dead
    link becomes a new applicant.

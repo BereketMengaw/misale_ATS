@@ -10,7 +10,7 @@ export async function PublishPanel({ jobId, approved }: Props) {
   const db = supabaseAdmin()
 
   const [{ data: channels }, { data: publications }] = await Promise.all([
-    db.from('channels').select('id, title, kind, language, active').eq('active', true).order('id'),
+    db.from('channels').select('id, title, kind, active').eq('active', true).order('id'),
     db
       .from('post_publications')
       .select('id, channel_id, method, message_id, posted_at, apply_count, error, channels(title)')

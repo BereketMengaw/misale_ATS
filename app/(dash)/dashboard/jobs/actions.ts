@@ -51,8 +51,7 @@ export async function createJob(_prev: FormState, formData: FormData): Promise<F
       starts_on: values.startsOn,
       notes: values.notes,
       commission_percent: values.commissionPercent,
-      body_am: draft.am,
-      body_en: draft.en,
+      body: draft.body,
       generated_by: draft.generatedBy,
       expires_at: expiresAt,
       created_by: await currentOperatorId(),
@@ -90,8 +89,7 @@ export async function regenerateJob(formData: FormData): Promise<void> {
   await db
     .from('job_posts')
     .update({
-      body_am: draft.am,
-      body_en: draft.en,
+      body: draft.body,
       generated_by: draft.generatedBy,
       body_edited: false,
       approved_at: null,
@@ -102,15 +100,14 @@ export async function regenerateJob(formData: FormData): Promise<void> {
 }
 
 /** Hand edits win over the generator until the operator regenerates. */
-export async function saveBodies(formData: FormData): Promise<void> {
+export async function saveBody(formData: FormData): Promise<void> {
   const id = Number(formData.get('id'))
-  const bodyAm = String(formData.get('body_am') ?? '').trim()
-  const bodyEn = String(formData.get('body_en') ?? '').trim()
-  if (!id || !bodyAm || !bodyEn) return
+  const body = String(formData.get('body') ?? '').trim()
+  if (!id || !body) return
 
   await supabaseAdmin()
     .from('job_posts')
-    .update({ body_am: bodyAm, body_en: bodyEn, body_edited: true, approved_at: null })
+    .update({ body, body_edited: true, approved_at: null })
     .eq('id', id)
 
   revalidatePath(`/dashboard/jobs/${id}`)

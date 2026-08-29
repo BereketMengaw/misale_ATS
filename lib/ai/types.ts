@@ -13,8 +13,7 @@ export type JobFields = {
 }
 
 export type PostDraft = {
-  am: string
-  en: string
+  body: string
   /** Which provider produced this, recorded on the row so it is auditable. */
   generatedBy: string
 }

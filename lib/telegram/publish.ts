@@ -2,13 +2,10 @@ import { InlineKeyboard, GrammyError } from 'grammy'
 import { getBot } from '@/lib/bot/bot'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { applyLink } from '@/lib/jobs/apply-link'
-import { channelBody, fitsTelegram, manualPack } from '@/lib/jobs/post-body'
-import type { PostLanguage } from '@/lib/jobs/types'
+import { fitsTelegram, manualPack } from '@/lib/jobs/post-body'
 
-export function applyButton(url: string, language: PostLanguage): InlineKeyboard {
-  const label =
-    language === 'am' ? 'አመልክት' : language === 'en' ? 'Apply' : 'አመልክት / Apply'
-  return new InlineKeyboard().url(label, url)
+export function applyButton(url: string): InlineKeyboard {
+  return new InlineKeyboard().url('Apply', url)
 }
 
 export type ChannelCheck = {
@@ -67,8 +64,8 @@ export async function checkChannel(target: string): Promise<ChannelCheck> {
   }
 }
 
-type JobRow = { id: number; body_am: string; body_en: string }
-type ChannelRow = { id: number; title: string; chat_id: number | null; kind: string; language: PostLanguage }
+type JobRow = { id: number; body: string }
+type ChannelRow = { id: number; title: string; chat_id: number | null; kind: string }
 
 export type PublishOutcome = {
   channelId: number
@@ -95,14 +92,14 @@ export async function publishJob(
 
   const { data: job } = await db
     .from('job_posts')
-    .select('id, body_am, body_en')
+    .select('id, body')
     .eq('id', jobId)
     .maybeSingle<JobRow>()
   if (!job) return []
 
   const { data: channels } = await db
     .from('channels')
-    .select('id, title, chat_id, kind, language')
+    .select('id, title, chat_id, kind')
     .in('id', channelIds)
     .returns<ChannelRow[]>()
   if (!channels?.length) return []
@@ -155,9 +152,8 @@ export async function publishJob(
       continue
     }
 
-    const body = channelBody({ am: job.body_am, en: job.body_en }, channel.language)
-    if (!fitsTelegram(body)) {
-      const detail = `Too long for Telegram (${body.length}/4096). Shorten it or post one language.`
+    if (!fitsTelegram(job.body)) {
+      const detail = `Too long for Telegram (${job.body.length}/4096). Shorten the post.`
       await db.from('post_publications').update({ error: detail }).eq('id', publication.id)
       outcomes.push({ channelId: channel.id, channelTitle: channel.title, ok: false, method, detail })
       continue
@@ -165,8 +161,8 @@ export async function publishJob(
 
     try {
       const url = applyLink(bot.botInfo.username, job.id, publication.id)
-      const sent = await bot.api.sendMessage(channel.chat_id!, body, {
-        reply_markup: applyButton(url, channel.language),
+      const sent = await bot.api.sendMessage(channel.chat_id!, job.body, {
+        reply_markup: applyButton(url),
       })
 
       await db
@@ -203,17 +199,16 @@ export async function manualPackFor(publicationId: number): Promise<string | nul
 
   const { data } = await db
     .from('post_publications')
-    .select('id, job_post_id, job_posts(body_am, body_en), channels(language)')
+    .select('id, job_post_id, job_posts(body)')
     .eq('id', publicationId)
     .maybeSingle()
 
   if (!data) return null
 
-  const job = data.job_posts as unknown as { body_am: string; body_en: string } | null
-  const channel = data.channels as unknown as { language: PostLanguage } | null
-  if (!job || !channel) return null
+  const job = data.job_posts as unknown as { body: string } | null
+  if (!job) return null
 
   const bot = await getBot()
   const url = applyLink(bot.botInfo.username, data.job_post_id, data.id)
-  return manualPack(channelBody({ am: job.body_am, en: job.body_en }, channel.language), url, channel.language)
+  return manualPack(job.body, url)
 }

@@ -5,8 +5,7 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        // Amharic needs a font with Ethiopic coverage; system stacks fall back badly.
-        sans: ['var(--font-sans)', 'Noto Sans Ethiopic', 'system-ui', 'sans-serif'],
+        sans: ['var(--font-sans)', 'system-ui', 'sans-serif'],
       },
     },
   },

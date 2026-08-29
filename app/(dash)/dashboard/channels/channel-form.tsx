@@ -11,23 +11,13 @@ export function ChannelForm() {
 
   return (
     <form action={action} className="space-y-3 rounded-md border border-neutral-200 bg-white p-4">
-      <div className="grid gap-3 sm:grid-cols-3">
-        <label className="block sm:col-span-2">
-          <span className="text-sm font-medium text-neutral-700">Channel</span>
-          <input name="target" className={`mt-1 ${input}`} placeholder="@ethiotutors or -1001234567890" />
-          <span className="mt-1 block text-xs text-neutral-400">
-            Add the bot as an admin first, then paste it here.
-          </span>
-        </label>
-        <label className="block">
-          <span className="text-sm font-medium text-neutral-700">Post in</span>
-          <select name="language" defaultValue="both" className={`mt-1 ${input}`}>
-            <option value="both">Both languages</option>
-            <option value="am">አማርኛ only</option>
-            <option value="en">English only</option>
-          </select>
-        </label>
-      </div>
+      <label className="block">
+        <span className="text-sm font-medium text-neutral-700">Channel</span>
+        <input name="target" className={`mt-1 ${input}`} placeholder="@ethiotutors or -1001234567890" />
+        <span className="mt-1 block text-xs text-neutral-400">
+          Add the bot as an admin first, then paste it here.
+        </span>
+      </label>
 
       <label className="block">
         <span className="text-sm font-medium text-neutral-700">Name</span>

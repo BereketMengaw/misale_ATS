@@ -1,13 +1,11 @@
 import { supabaseAdmin } from '@/lib/supabase/admin'
-import type { Lang } from './copy'
 
 /**
  * Bot conversation state. Postgres, never memory — the webhook is stateless
  * and may run on any instance.
  */
 export type SessionData = {
-  lang?: Lang
-  /** Deep-link payload the user arrived with, e.g. job_12. */
+  /** Deep-link payload the user arrived with, e.g. job_12_3. */
   entry?: string
   [key: string]: unknown
 }

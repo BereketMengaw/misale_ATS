@@ -24,8 +24,7 @@ create table job_posts (
   commission_percent numeric(5,2) not null default 20 check (commission_percent >= 0 and commission_percent < 100),
 
   -- what the system writes
-  body_am            text not null,
-  body_en            text not null,
+  body               text not null,
   generated_by       text not null default 'template',
   -- true once the operator has hand-edited the text; regenerate then warns first
   body_edited        boolean not null default false,

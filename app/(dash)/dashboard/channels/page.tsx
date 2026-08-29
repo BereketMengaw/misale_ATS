@@ -4,12 +4,6 @@ import { recheckChannel, setChannelActive } from './actions'
 
 export const dynamic = 'force-dynamic'
 
-const LANGUAGE_LABEL: Record<string, string> = {
-  both: 'አማርኛ + English',
-  am: 'አማርኛ',
-  en: 'English',
-}
-
 export default async function ChannelsPage() {
   const { data: channels, error } = await supabaseAdmin()
     .from('channels')
@@ -46,8 +40,7 @@ export default async function ChannelsPage() {
                   {!c.active && <span className="ml-2 text-xs text-neutral-400">(paused)</span>}
                 </p>
                 <p className="text-xs text-neutral-500">
-                  {c.kind === 'bot_admin' ? 'Bot posts automatically' : 'Post by hand'} ·{' '}
-                  {LANGUAGE_LABEL[c.language]}
+                  {c.kind === 'bot_admin' ? 'Bot posts automatically' : 'Post by hand'}
                   {c.username && ` · @${c.username}`}
                 </p>
                 {c.last_check_detail && (

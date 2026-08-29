@@ -11,7 +11,7 @@ invoices → payouts.
 | Telegram | grammY, webhook at `/api/telegram/webhook` |
 | Scheduled work | Vercel Cron → `/api/cron/*` |
 | AI | Behind `lib/ai/provider.ts`; template (no model) by default, Gemini Flash free tier first real provider |
-| UI | Tailwind + shadcn/ui, Amharic + English |
+| UI | Tailwind + shadcn/ui, English |
 
 Bot conversation state lives in Postgres (`bot_sessions`), never in memory, so the stateless
 serverless webhook is safe.

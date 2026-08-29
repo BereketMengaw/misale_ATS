@@ -23,10 +23,10 @@ calls inside them.
 - TypeScript, Next.js App Router, Supabase, grammY.
 - Bot conversation state lives in Postgres (`bot_sessions`), never in memory — the webhook is
   stateless and may run on any instance.
-- User-facing copy is Amharic and English. Write each language natively; do not translate English
-  structure into Amharic.
-- SMS bodies: English or short Amharic only (Amharic SMS fits 70 chars vs 160). Long Amharic
-  belongs on Telegram.
+- User-facing copy is **English only**. Job posts, bot messages, buttons and SMS. Do not add a
+  second language, a language picker, or a `lang` column; `tests/copy.test.ts` fails the build if
+  Ethiopic script appears in bot copy.
+- SMS bodies stay under 160 characters, which is one segment.
 
 ## Build order
 

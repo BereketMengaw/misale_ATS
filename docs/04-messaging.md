@@ -59,9 +59,8 @@ disappearing.
 
 ## Copy constraints
 
-English SMS fits 160 characters; Amharic switches encoding and fits **70**, so an Amharic SMS costs
-roughly 3× the segments. SMS bodies stay short and English-leaning; full Amharic lives on Telegram,
-where length is free.
+SMS fits **160 characters** per segment, so bodies stay short and say only what is needed. Anything
+longer belongs on Telegram, where length is free.
 
 Sample, after a hire:
 

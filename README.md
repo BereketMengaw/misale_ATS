@@ -5,8 +5,8 @@ ranks tutors, places them with parents, tracks lessons, bills parents and works 
 dashboard is the only place a human touches it.
 
 **Status:** steps 1–3 built — foundations, job-post writing, publishing. That is the first
-stopping point: jobs can be posted properly, in both languages, in seconds. Steps 4–12 remain —
-see [the build plan](docs/02-build-plan.md).
+stopping point: jobs can be posted properly, in seconds. Steps 4–12 remain — see
+[the build plan](docs/02-build-plan.md).
 
 ## The one rule that shapes everything
 

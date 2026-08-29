@@ -4,7 +4,6 @@
 -- that it was posted by hand.
 
 create type channel_kind   as enum ('bot_admin', 'manual');
-create type post_language  as enum ('both', 'am', 'en');
 create type publish_method as enum ('bot', 'manual');
 
 create table channels (
@@ -14,7 +13,6 @@ create table channels (
   chat_id     bigint unique,
   username    text,                       -- without the @
   kind        channel_kind not null default 'manual',
-  language    post_language not null default 'both',
   active      boolean not null default true,
   -- what the last admin check saw, so the dashboard can warn before a failed post
   last_check_at     timestamptz,

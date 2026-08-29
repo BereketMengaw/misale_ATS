@@ -1,16 +1,16 @@
 import { supabaseAdmin } from '@/lib/supabase/admin'
-import type { Lang } from './copy'
 
 export type OpenJob = {
   id: number
   subject: string
   grade: string
   area: string
-  body_am: string
-  body_en: string
+  body: string
   status: string
   expires_at: string | null
 }
+
+const COLUMNS = 'id, subject, grade, area, body, status, expires_at'
 
 /** Open, and not past its expiry window. */
 export function isLive(job: OpenJob): boolean {
@@ -21,7 +21,7 @@ export function isLive(job: OpenJob): boolean {
 export async function getJob(jobId: number): Promise<OpenJob | null> {
   const { data } = await supabaseAdmin()
     .from('job_posts')
-    .select('id, subject, grade, area, body_am, body_en, status, expires_at')
+    .select(COLUMNS)
     .eq('id', jobId)
     .maybeSingle<OpenJob>()
   return data ?? null
@@ -31,7 +31,7 @@ export async function getJob(jobId: number): Promise<OpenJob | null> {
 export async function listOpenJobs(limit = 5): Promise<OpenJob[]> {
   const { data } = await supabaseAdmin()
     .from('job_posts')
-    .select('id, subject, grade, area, body_am, body_en, status, expires_at')
+    .select(COLUMNS)
     .eq('status', 'open')
     .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
     .order('created_at', { ascending: false })
@@ -42,12 +42,6 @@ export async function listOpenJobs(limit = 5): Promise<OpenJob[]> {
 
 export function jobLabel(job: OpenJob): string {
   return `${job.subject} · ${job.grade} · ${job.area}`
-}
-
-export function jobBody(job: OpenJob, lang?: Lang): string {
-  if (lang === 'am') return job.body_am
-  if (lang === 'en') return job.body_en
-  return `${job.body_am}\n\n— — —\n\n${job.body_en}`
 }
 
 /** Counted without a read first: two taps can land on two instances at once. */

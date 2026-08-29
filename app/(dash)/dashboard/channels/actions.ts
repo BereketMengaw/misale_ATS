@@ -15,7 +15,6 @@ export async function addChannel(
   formData: FormData,
 ): Promise<ChannelFormState> {
   const target = String(formData.get('target') ?? '').trim()
-  const language = String(formData.get('language') ?? 'both')
   const fallbackTitle = String(formData.get('title') ?? '').trim()
 
   if (!target && !fallbackTitle) return { error: 'Give a @username, a chat id, or a name.' }
@@ -29,7 +28,6 @@ export async function addChannel(
       chat_id: check.chatId ?? null,
       username: check.username ?? (target.startsWith('@') ? target.slice(1) : null),
       kind: check.ok ? 'bot_admin' : 'manual',
-      language,
       last_check_at: new Date().toISOString(),
       last_check_ok: check.ok,
       last_check_detail: check.detail,

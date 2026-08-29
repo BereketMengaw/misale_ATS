@@ -7,9 +7,9 @@ useful on its own.
 | # | Step | Done when |
 |---|---|---|
 | 1 | **Foundations** — Next.js + Supabase, first migration, bot webhook, admin login | You message the bot and it replies; you can log into `/dashboard` |
-| 2 | **Job post writing** — fields → bilingual template → preview → approve | You answer a few questions and get a post you'd actually send |
+| 2 | **Job post writing** — fields → template → preview → approve | You answer a few questions and get a post you'd actually send |
 | 3 | **Publishing** — channels, Apply deep link, copy-pack for channels you don't own | A post lands in the test channel with a working Apply button |
-| | **STOP** | You can already post jobs properly, in both languages, in seconds |
+| | **STOP** | You can already post jobs properly, in seconds |
 | 4 | **Registration wizard** — deterministic steps, share-contact, availability grid, CV upload | Someone applies from another phone and appears in `/candidates` |
 | 5 | **CV handling** — file shown beside the profile; optional parsing → merge, conflicts flagged | Every CV is readable next to its profile; if parsing is on, 5 real CVs match |
 | 6 | **Ranking** — pure scorer, weights in settings, applicant board | 20 seeded candidates rank in the order you'd pick by hand |

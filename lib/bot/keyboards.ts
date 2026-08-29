@@ -1,41 +1,35 @@
 import { InlineKeyboard } from 'grammy'
-import { copy, type Lang } from './copy'
+import { copy } from './copy'
 import { jobLabel, type OpenJob } from './jobs'
-
-export function languageKeyboard(): InlineKeyboard {
-  return new InlineKeyboard()
-    .text(copy.buttons.amharic, 'lang:am')
-    .text(copy.buttons.english, 'lang:en')
-}
 
 /**
  * The main menu. Every destination is a button — there is no free-text branch,
  * and there is deliberately no "talk to a human".
  */
-export function mainMenu(lang: Lang): InlineKeyboard {
+export function mainMenu(): InlineKeyboard {
   const b = copy.buttons
   return new InlineKeyboard()
-    .text(b.openJobs[lang], 'menu:jobs')
+    .text(b.openJobs, 'menu:jobs')
     .row()
-    .text(b.register[lang], 'menu:register')
+    .text(b.register, 'menu:register')
     .row()
-    .text(b.myProfile[lang], 'menu:profile')
-    .text(b.faq[lang], 'menu:faq')
+    .text(b.myProfile, 'menu:profile')
+    .text(b.faq, 'menu:faq')
 }
 
 /** After arriving on a job deep link. One button forward, one back. */
-export function applyKeyboard(jobId: number, lang: Lang): InlineKeyboard {
+export function applyKeyboard(jobId: number): InlineKeyboard {
   return new InlineKeyboard()
-    .text(copy.buttons.applyNow[lang], `apply:${jobId}`)
+    .text(copy.buttons.applyNow, `apply:${jobId}`)
     .row()
-    .text(copy.buttons.backToMenu[lang], 'menu:main')
+    .text(copy.buttons.backToMenu, 'menu:main')
 }
 
 /** What a filled, expired or unknown link falls back to: the live jobs. */
-export function openJobsKeyboard(jobs: OpenJob[], lang: Lang): InlineKeyboard {
+export function openJobsKeyboard(jobs: OpenJob[]): InlineKeyboard {
   const kb = new InlineKeyboard()
   for (const job of jobs) {
     kb.text(jobLabel(job), `job:${job.id}`).row()
   }
-  return kb.text(copy.buttons.backToMenu[lang], 'menu:main')
+  return kb.text(copy.buttons.backToMenu, 'menu:main')
 }

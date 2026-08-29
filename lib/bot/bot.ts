@@ -1,10 +1,10 @@
 import { Bot, type Context, type InlineKeyboard } from 'grammy'
 import { env } from '@/lib/env'
-import { copy, t, type Lang } from './copy'
-import { applyKeyboard, languageKeyboard, mainMenu, openJobsKeyboard } from './keyboards'
+import { copy } from './copy'
+import { applyKeyboard, mainMenu, openJobsKeyboard } from './keyboards'
 import { getSession, saveSession } from './session'
 import { logMessage } from './log'
-import { countApply, getJob, isLive, jobBody, listOpenJobs } from './jobs'
+import { countApply, getJob, isLive, listOpenJobs } from './jobs'
 import { parseApplyPayload } from '@/lib/jobs/apply-link'
 
 let cached: Bot | null = null
@@ -47,7 +47,7 @@ function register(bot: Bot) {
 
     if (parsed?.publicationId) await countApply(parsed.publicationId)
 
-    const session = await saveSession(from.id, chatId, {
+    await saveSession(from.id, chatId, {
       flow: null,
       step: null,
       data: {
@@ -56,78 +56,37 @@ function register(bot: Bot) {
       },
     })
 
-    const lang = session.data.lang as Lang | undefined
-
-    // Language first — everything after it is written in one language, not two.
-    if (!lang) {
-      await reply(ctx, `${t(copy.welcome)}\n\n${t(copy.chooseLanguage)}`, languageKeyboard())
-      return
-    }
-
     if (parsed) {
-      await showJob(ctx, parsed.jobId, lang)
+      await showJob(ctx, parsed.jobId)
       return
     }
 
-    await reply(ctx, `${t(copy.welcome, lang)}\n\n${t(copy.menu, lang)}`, mainMenu(lang))
-  })
-
-  bot.callbackQuery(/^lang:(am|en)$/, async (ctx) => {
-    const lang = ctx.match[1] as Lang
-    const from = ctx.from
-    const chatId = ctx.chat?.id
-    if (!from || chatId === undefined) return
-
-    const session = await saveSession(from.id, chatId, { data: { lang } })
-    await ctx.answerCallbackQuery()
-
-    // Someone who arrived on a job link came for that job, not for a menu.
-    const jobId = session.data.jobId as number | undefined
-    if (jobId) {
-      await ctx.editMessageText(t(copy.languageSet, lang))
-      await showJob(ctx, jobId, lang)
-      return
-    }
-
-    await ctx.editMessageText(`${t(copy.languageSet, lang)}\n\n${t(copy.menu, lang)}`, {
-      reply_markup: mainMenu(lang),
-    })
+    await reply(ctx, `${copy.welcome}\n\n${copy.menu}`, mainMenu())
   })
 
   // Tapping one of the "here is what's open now" buttons.
   bot.callbackQuery(/^job:(\d+)$/, async (ctx) => {
-    const lang = await langOf(ctx)
     await ctx.answerCallbackQuery()
-    await showJob(ctx, Number(ctx.match[1]), lang)
+    await showJob(ctx, Number(ctx.match[1]))
   })
 
   // Step 4 turns this into the registration wizard.
   bot.callbackQuery(/^apply:(\d+)$/, async (ctx) => {
-    const lang = await langOf(ctx)
-    await ctx.answerCallbackQuery({ text: copy.notReadyYet[lang] })
+    await ctx.answerCallbackQuery({ text: copy.notReadyYet })
   })
 
   bot.callbackQuery('menu:main', async (ctx) => {
-    const lang = await langOf(ctx)
     await ctx.answerCallbackQuery()
-    await reply(ctx, t(copy.menu, lang), mainMenu(lang))
+    await reply(ctx, copy.menu, mainMenu())
   })
 
   bot.callbackQuery(/^menu:(.+)$/, async (ctx) => {
-    const lang = await langOf(ctx)
-    await ctx.answerCallbackQuery({ text: copy.notReadyYet[lang] })
+    await ctx.answerCallbackQuery({ text: copy.notReadyYet })
   })
 
   // No free-text branch exists, so anything typed goes back to the buttons.
   bot.on('message', async (ctx) => {
-    const session = await getSession(ctx.from.id)
-    const lang = session?.data.lang as Lang | undefined
-
-    if (!lang) {
-      await reply(ctx, `${t(copy.welcome)}\n\n${t(copy.chooseLanguage)}`, languageKeyboard())
-      return
-    }
-    await reply(ctx, t(copy.menu, lang), mainMenu(lang))
+    await reply(ctx, copy.menu, mainMenu())
   })
 
   bot.catch((err) => {
@@ -139,32 +98,21 @@ function register(bot: Bot) {
  * A job link, live or dead. A forwarded post or a screenshot from three weeks
  * ago must not dead-end: a filled link becomes a new applicant.
  */
-async function showJob(ctx: Context, jobId: number, lang: Lang) {
+async function showJob(ctx: Context, jobId: number) {
   const job = await getJob(jobId)
 
   if (!job || !isLive(job)) {
     const open = await listOpenJobs()
-    const message = !job ? copy.jobNotFound[lang] : copy.jobFilled[lang]
 
     if (open.length === 0) {
-      await reply(ctx, copy.noOpenJobs[lang], mainMenu(lang))
+      await reply(ctx, copy.noOpenJobs, mainMenu())
       return
     }
-    await reply(ctx, message, openJobsKeyboard(open, lang))
+    await reply(ctx, job ? copy.jobFilled : copy.jobNotFound, openJobsKeyboard(open))
     return
   }
 
-  await reply(
-    ctx,
-    `${copy.applyingFor[lang]}\n\n${jobBody(job, lang)}\n\n${copy.applyNext[lang]}`,
-    applyKeyboard(job.id, lang),
-  )
-}
-
-async function langOf(ctx: Context): Promise<Lang> {
-  if (!ctx.from) return 'en'
-  const session = await getSession(ctx.from.id)
-  return (session?.data.lang as Lang | undefined) ?? 'en'
+  await reply(ctx, `${copy.applyingFor}\n\n${job.body}\n\n${copy.applyNext}`, applyKeyboard(job.id))
 }
 
 async function reply(ctx: Context, text: string, keyboard?: InlineKeyboard) {
