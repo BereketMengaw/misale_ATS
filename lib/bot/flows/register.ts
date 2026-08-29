@@ -9,6 +9,7 @@ import {
   GENDERS, GRADE_BANDS, RATE_BANDS, SLOTS, type Option,
 } from '@/lib/candidates/options'
 import { applyToJob, saveCandidate, storeCv, type Draft } from '@/lib/candidates/store'
+import { normalizePhone, phoneProblem } from '@/lib/candidates/phone'
 import { env } from '@/lib/env'
 
 const MAX_CV_BYTES = 10 * 1024 * 1024
@@ -296,21 +297,40 @@ export async function handleRegisterMessage(ctx: Context): Promise<boolean> {
   const msg = ctx.message
   if (!msg) return false
 
-  // --- share contact ---
+  // --- phone: the shared contact, or a typed number ---
   if (step === 'phone') {
-    if (!msg.contact) {
-      await say(ctx, copy.reg.phoneNotShared)
+    if (msg.contact) {
+      if (msg.contact.user_id && msg.contact.user_id !== ctx.from!.id) {
+        await say(ctx, copy.reg.phoneWrongPerson)
+        return true
+      }
+      // Telegram gives the number in whatever shape the owner saved it.
+      const shared = normalizePhone(msg.contact.phone_number)
+      draft.phone = shared.ok ? shared.e164 : msg.contact.phone_number
+      await saveSession(ctx.from!.id, ctx.chat!.id, { data: { draft } })
+      // Take the reply keyboard away; everything after this is inline buttons.
+      await ctx.reply('Thanks.', { reply_markup: { remove_keyboard: true } })
+      await advance(ctx, 'phone', sess)
       return true
     }
-    if (msg.contact.user_id && msg.contact.user_id !== ctx.from!.id) {
-      await say(ctx, copy.reg.phoneWrongPerson)
+
+    // The reply keyboard is easy to miss on Telegram Desktop. A typed number is
+    // machine-validated, so it needs no human to interpret it — and nobody gets
+    // stuck repeating a step they cannot see the button for.
+    if (msg.text) {
+      const parsed = normalizePhone(msg.text)
+      if (!parsed.ok) {
+        await say(ctx, phoneProblem(parsed.reason))
+        return true
+      }
+      draft.phone = parsed.e164
+      await saveSession(ctx.from!.id, ctx.chat!.id, { data: { draft } })
+      await ctx.reply(copy.reg.phoneConfirmed(parsed.national), { reply_markup: { remove_keyboard: true } })
+      await advance(ctx, 'phone', sess)
       return true
     }
-    draft.phone = msg.contact.phone_number
-    await saveSession(ctx.from!.id, ctx.chat!.id, { data: { draft } })
-    // Take the reply keyboard away; everything after this is inline buttons.
-    await ctx.reply('Thanks.', { reply_markup: { remove_keyboard: true } })
-    await advance(ctx, 'phone', sess)
+
+    await say(ctx, copy.reg.phone)
     return true
   }
 

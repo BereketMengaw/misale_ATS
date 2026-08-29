@@ -35,8 +35,13 @@ export const copy = {
     nameTypeIt: 'Send me your full name as one message.',
     nameTooShort: 'That looks too short. Send your full name as one message.',
 
-    phone: 'Tap the button below to share your phone number. Parents never see it until you are hired.',
-    phoneNotShared: 'Use the "Share my number" button below — typing it does not work here.',
+    phone: [
+      'Your phone number, please. Parents never see it until you are hired.',
+      '',
+      'Tap "Share my number" below — it is one tap and nothing to mistype.',
+      "Can't see the button? Just type your number instead, like 0911234567.",
+    ].join('\n'),
+    phoneConfirmed: (national: string) => `Got it — ${national}.`,
     phoneWrongPerson: 'That is someone else\'s contact. Tap the button to share your own.',
 
     gender: 'Some families ask for a female or male tutor. Which are you?',
