@@ -35,6 +35,9 @@ export default async function DashLayout({ children }: { children: React.ReactNo
             <Link href="/dashboard/placements" className="hover:text-neutral-900">
               Placements
             </Link>
+            <Link href="/dashboard/money" className="hover:text-neutral-900">
+              Money
+            </Link>
             <Link href="/dashboard/channels" className="hover:text-neutral-900">
               Channels
             </Link>

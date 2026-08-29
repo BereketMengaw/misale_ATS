@@ -21,9 +21,17 @@ just passes it along instead of letting it sit unread.
 
 ## Invoices
 
-Generated from **confirmed** lesson hours, not planned ones. Each carries a **unique short
-reference code** that the parent is asked to put in the payment reason. That code is what makes
-matching reliable.
+Billing is **monthly**. A placement on a monthly rate is billed that rate flat; one on an hourly or
+per-session rate is billed for the lessons its agreed schedule actually places in that month,
+counted from the calendar rather than estimated — September and February are not the same month.
+
+Each invoice carries a **unique short reference code** that the parent is asked to put in the
+payment reason. That code is what makes matching reliable. Its alphabet excludes 0/O, 1/I/L and the
+vowels, so it survives being written by hand, read off a screen and retyped on a keypad, and cannot
+spell a word by accident.
+
+There are no per-lesson timesheets: the operator removed them, since a flat monthly rate does not
+need hours counted.
 
 ## Matching
 
