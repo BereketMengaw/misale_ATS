@@ -4,7 +4,7 @@ A tutoring agency that runs itself. A Telegram bot writes and publishes job post
 ranks tutors, places them with parents, tracks lessons, bills parents and works out payouts. A web
 dashboard is the only place a human touches it.
 
-**Status:** planning complete, no code yet.
+**Status:** step 1 (foundations) built. Steps 2–12 remain — see [the build plan](docs/02-build-plan.md).
 
 ## The one rule that shapes everything
 
@@ -25,5 +25,25 @@ Anything that would put him in a back-and-forth conversation is a bug.
 | [05 — Money](docs/05-money.md) | Invoices, payment matching, payouts |
 | [06 — Decisions](docs/06-decisions.md) | Settled, and still open |
 | [07 — Setup checklist](docs/07-setup-checklist.md) | What to prepare before step 1 |
+
+## Running it locally
+
+```bash
+npm install
+cp .env.example .env.local     # fill in Supabase + Telegram values
+npm run dev
+```
+
+Then, once:
+
+1. **Database** — run `supabase/migrations/0001_foundations.sql` against the Supabase project
+   (SQL editor, or `supabase db push`).
+2. **Operator** — create your user under Authentication → Users, then insert the allowlist row:
+   `insert into operators (id, email) values ('<user-uuid>', '<your email>');`
+   Signing in without this row gets you a dashboard that says so.
+3. **Webhook** — expose the dev server (`npx untun` / ngrok / a Vercel preview), set
+   `NEXT_PUBLIC_APP_URL` to that origin, then `npm run bot:set-webhook`.
+
+`npm test` runs the unit tests; `npm run typecheck` and `npm run build` must both stay clean.
 
 Client-facing summary: https://claude.ai/code/artifact/72322bd0-2798-42b1-99c0-c70427c0b03c
