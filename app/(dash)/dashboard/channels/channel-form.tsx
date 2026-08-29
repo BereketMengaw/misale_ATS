@@ -10,7 +10,7 @@ export function ChannelForm() {
   const [state, action, pending] = useActionState(addChannel, {} as ChannelFormState)
 
   return (
-    <form action={action} className="space-y-3 rounded-md border border-neutral-200 bg-white p-4">
+    <form action={action} className="space-y-3">
       <label className="block">
         <span className="text-sm font-medium text-neutral-700">Channel</span>
         <input name="target" className={`mt-1 ${input}`} placeholder="@ethiotutors or -1001234567890" />

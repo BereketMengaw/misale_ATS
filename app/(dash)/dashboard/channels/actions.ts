@@ -26,10 +26,16 @@ export async function addChannel(
       ? await checkChannel(target)
       : { ok: false, detail: 'Added by name only — the bot was never asked about it.' }
 
+    // A failed lookup with no name to fall back on is a typo, not a manual
+    // channel. Saving it would leave an unusable row and hide the mistake.
+    if (!check.ok && !fallbackTitle) {
+      return { error: `Telegram could not find that: ${check.detail}` }
+    }
+
     const { error } = await supabaseAdmin()
       .from('channels')
       .insert({
-        title: check.title ?? fallbackTitle ?? target,
+        title: check.title || fallbackTitle || target,
         chat_id: check.chatId ?? null,
         username: check.username ?? (target.startsWith('@') ? target.slice(1) : null),
         kind: check.ok ? 'bot_admin' : 'manual',
@@ -89,5 +95,30 @@ export async function setChannelActive(formData: FormData): Promise<void> {
   if (!id) return
 
   await supabaseAdmin().from('channels').update({ active }).eq('id', id)
+  revalidatePath('/dashboard/channels')
+}
+
+/** One click from the "recently added the bot to these" list. No id to copy. */
+export async function addDiscoveredChannel(formData: FormData): Promise<void> {
+  const chatId = Number(formData.get('chatId'))
+  if (!Number.isFinite(chatId)) return
+
+  const check = await checkChannel(String(chatId))
+
+  await supabaseAdmin()
+    .from('channels')
+    .upsert(
+      {
+        title: check.title || String(formData.get('title') || chatId),
+        chat_id: chatId,
+        username: check.username ?? null,
+        kind: check.ok ? 'bot_admin' : 'manual',
+        last_check_at: new Date().toISOString(),
+        last_check_ok: check.ok,
+        last_check_detail: check.detail,
+      },
+      { onConflict: 'chat_id' },
+    )
+
   revalidatePath('/dashboard/channels')
 }

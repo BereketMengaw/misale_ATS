@@ -1,14 +1,18 @@
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { ChannelForm } from './channel-form'
-import { recheckChannel, setChannelActive } from './actions'
+import { discoveredChats } from '@/lib/telegram/discovered'
+import { addDiscoveredChannel, recheckChannel, setChannelActive } from './actions'
 
 export const dynamic = 'force-dynamic'
 
 export default async function ChannelsPage() {
-  const { data: channels, error } = await supabaseAdmin()
-    .from('channels')
-    .select('*')
-    .order('created_at', { ascending: true })
+  const [{ data: channels, error }, discovered] = await Promise.all([
+    supabaseAdmin().from('channels').select('*').order('created_at', { ascending: true }),
+    discoveredChats(),
+  ])
+
+  const known = new Set((channels ?? []).map((c) => c.chat_id))
+  const available = discovered.filter((d) => !known.has(d.chatId))
 
   return (
     <div className="space-y-6">
@@ -20,7 +24,46 @@ export default async function ChannelsPage() {
         </p>
       </div>
 
-      <ChannelForm />
+      {available.length > 0 && (
+        <section className="rounded-md border border-neutral-200 bg-white p-4">
+          <h2 className="text-sm font-medium">The bot has been added to these</h2>
+          <p className="mt-0.5 text-xs text-neutral-500">
+            Telegram told us the moment you made it an admin. One click, no ID to copy.
+          </p>
+          <ul className="mt-3 space-y-2">
+            {available.map((d) => (
+              <li
+                key={d.chatId}
+                className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-neutral-200 p-3"
+              >
+                <div>
+                  <p className="text-sm font-medium">{d.title}</p>
+                  <p className="text-xs text-neutral-500">
+                    {d.type} · bot is {d.status}
+                    {d.username && ` · @${d.username}`}
+                  </p>
+                </div>
+                <form action={addDiscoveredChannel}>
+                  <input type="hidden" name="chatId" value={d.chatId} />
+                  <input type="hidden" name="title" value={d.title} />
+                  <button className="rounded-md bg-neutral-900 px-4 py-1.5 text-xs font-medium text-white">
+                    Add
+                  </button>
+                </form>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      <details className="rounded-md border border-neutral-200 bg-white p-4">
+        <summary className="cursor-pointer text-sm font-medium">
+          Add one by hand (a channel you do not own)
+        </summary>
+        <div className="mt-3">
+          <ChannelForm />
+        </div>
+      </details>
 
       {error && <p className="text-sm text-red-600">{error.message}</p>}
 
