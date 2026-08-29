@@ -3,7 +3,7 @@ import { smsCost } from '@/lib/messaging/sms'
 import { outboxPurposeLabel } from '@/lib/ui/labels'
 import { SendCard } from '@/components/send-card'
 import { Button } from '@/components/ui/button'
-import { Badge, Card, CardHead, ErrorNote, LinkButton, PageHeader, PageShell, Row, Rows } from '@/components/ui'
+import { ActionForm, Badge, Card, CardHead, ErrorNote, LinkButton, PageHeader, PageShell, Row, Rows } from '@/components/ui'
 import { markSent } from './actions'
 import { hire, presentTop } from './jobs/actions'
 import { queueMessage } from './money/actions'
@@ -122,19 +122,15 @@ function DecisionAction({ decision }: { decision: Decision }) {
   switch (decision.kind) {
     case 'hire':
       return (
-        <form action={hire}>
-          <input type="hidden" name="id" value={decision.jobId} />
-          <input type="hidden" name="applicationId" value={decision.applicationId} />
+        <ActionForm action={hire} fields={{ id: decision.jobId, applicationId: decision.applicationId }}>
           <Button variant="success" size="sm" pendingLabel="Hiring…">
             Hire {decision.firstName}
           </Button>
-        </form>
+        </ActionForm>
       )
     case 'present':
       return (
-        <form action={presentTop}>
-          <input type="hidden" name="id" value={decision.jobId} />
-          <input type="hidden" name="size" value={decision.size} />
+        <ActionForm action={presentTop} fields={{ id: decision.jobId, size: decision.size }}>
           <Button
             variant="primary"
             size="sm"
@@ -143,7 +139,14 @@ function DecisionAction({ decision }: { decision: Decision }) {
           >
             Ask top {decision.size}
           </Button>
-        </form>
+        </ActionForm>
+      )
+    case 'blocked':
+      // Nothing to offer: the only way forward is changing the job itself.
+      return (
+        <LinkButton href={`/dashboard/jobs/${decision.jobId}`} variant="secondary" size="sm">
+          Open the job
+        </LinkButton>
       )
     case 'publish':
       // Which channels is a real choice, so this goes to the job rather than

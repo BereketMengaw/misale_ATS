@@ -109,16 +109,8 @@ export function rank(
   candidate: RankableCandidate,
   weights: Weights = DEFAULT_WEIGHTS,
 ): RankResult {
-  // A hard filter, not a score: a family that asked for a female tutor is not
-  // served better by a high-scoring male one.
-  if (job.genderPref && job.genderPref !== 'any' && candidate.gender && candidate.gender !== job.genderPref) {
-    return {
-      score: 0,
-      breakdown: [],
-      excluded: true,
-      excludedReason: `Job asks for a ${job.genderPref} tutor`,
-    }
-  }
+  const barred = genderExcluded(job.genderPref, candidate.gender)
+  if (barred) return { score: 0, breakdown: [], excluded: true, excludedReason: barred }
 
   const breakdown: Component[] = []
   let earned = 0
@@ -201,6 +193,24 @@ export function rank(
 }
 
 /** Highest first; ties broken by the components that matter most. */
+/**
+ * The one hard filter, not a score: a family that asked for a female tutor is
+ * not served better by a high-scoring male one. PURE.
+ *
+ * Exported because the boards need to know who can be asked WITHOUT ranking
+ * everyone — and because a board that counted an excluded applicant as askable
+ * offered a button that could not work.
+ */
+export function genderExcluded(
+  genderPref: string | null | undefined,
+  gender: string | null | undefined,
+): string | null {
+  if (genderPref && genderPref !== 'any' && gender && gender !== genderPref) {
+    return `Job asks for a ${genderPref} tutor`
+  }
+  return null
+}
+
 export function compareRanked<T extends { rank: RankResult }>(a: T, b: T): number {
   if (a.rank.excluded !== b.rank.excluded) return a.rank.excluded ? 1 : -1
   if (b.rank.score !== a.rank.score) return b.rank.score - a.rank.score

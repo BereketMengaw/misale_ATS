@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase/admin'
 import { isOverdue } from '@/lib/money/invoice'
 import { formatEtb } from '@/lib/money/commission'
 import { offerTerms } from '@/lib/ui/labels'
+import { genderExcluded } from '@/lib/scoring/rank'
 
 /**
  * What is waiting on the operator, gathered from wherever it happens to live.
@@ -26,6 +27,7 @@ export type Sendable = {
 export type Decision =
   | { kind: 'hire'; key: string; title: string; detail: string; jobId: number; applicationId: number; firstName: string }
   | { kind: 'present'; key: string; title: string; detail: string; jobId: number; size: number; terms: string }
+  | { kind: 'blocked'; key: string; title: string; detail: string; jobId: number }
   | { kind: 'publish'; key: string; title: string; detail: string; jobId: number }
   | { kind: 'chase'; key: string; title: string; detail: string; invoiceId: number; late: boolean }
 
@@ -66,7 +68,7 @@ export const loadToday = cache(async function loadToday(): Promise<Today> {
         .eq('status', 'commission_agreed'),
       db
         .from('job_posts')
-        .select('id, subject, grade, area, created_at, rate_amount, rate_period, commission_percent')
+        .select('id, subject, grade, area, created_at, gender_pref, rate_amount, rate_period, commission_percent')
         .eq('status', 'open'),
       db
         .from('job_posts')
@@ -105,14 +107,28 @@ export const loadToday = cache(async function loadToday(): Promise<Today> {
     if (openIds.length > 0) {
       const { data: apps } = await db
         .from('applications')
-        .select('id, job_post_id, status')
+        .select('id, job_post_id, status, candidates(gender)')
         .in('job_post_id', openIds)
 
-      const byJob = new Map<number, { total: number; asked: number }>()
+      const prefByJob = new Map((openJobs ?? []).map((j) => [j.id, j.gender_pref as string | null]))
+
+      // `eligible` is the count that matters. Counting everyone who applied
+      // offered "Ask top 1" on a job whose only applicant its own gender
+      // preference bars — a button that could not do anything, and did not say so.
+      const byJob = new Map<number, { total: number; asked: number; eligible: number; barred: string | null }>()
       for (const app of apps ?? []) {
-        const bucket = byJob.get(app.job_post_id) ?? { total: 0, asked: 0 }
+        const bucket = byJob.get(app.job_post_id) ?? { total: 0, asked: 0, eligible: 0, barred: null }
         bucket.total += 1
-        if (['shortlisted', 'presented', 'commission_agreed', 'hired'].includes(app.status)) bucket.asked += 1
+
+        if (['shortlisted', 'presented', 'commission_agreed', 'hired'].includes(app.status)) {
+          bucket.asked += 1
+        } else {
+          const gender = (app.candidates as unknown as { gender: string | null } | null)?.gender ?? null
+          const barred = genderExcluded(prefByJob.get(app.job_post_id), gender)
+          if (barred) bucket.barred = barred
+          else bucket.eligible += 1
+        }
+
         byJob.set(app.job_post_id, bucket)
       }
 
@@ -120,13 +136,26 @@ export const loadToday = cache(async function loadToday(): Promise<Today> {
         const bucket = byJob.get(job.id)
         if (!bucket || bucket.total === 0 || bucket.asked > 0) continue
         const age = daysBetween(new Date(job.created_at), now)
+        const where = `${job.subject} · ${job.grade} · ${job.area}`
+
+        if (bucket.eligible === 0) {
+          decisions.push({
+            kind: 'blocked',
+            key: `blocked-${job.id}`,
+            title: `${bucket.total} applicant${bucket.total === 1 ? '' : 's'}, but ${bucket.total === 1 ? 'none' : 'nobody'} you can ask`,
+            detail: `${where} · ${bucket.barred ?? 'nobody is eligible'}`,
+            jobId: job.id,
+          })
+          continue
+        }
+
         decisions.push({
           kind: 'present',
           key: `present-${job.id}`,
-          title: `${bucket.total} applicant${bucket.total === 1 ? '' : 's'}, nobody asked yet`,
-          detail: `${job.subject} · ${job.grade} · ${job.area} · posted ${age} day${age === 1 ? '' : 's'} ago`,
+          title: `${bucket.eligible} applicant${bucket.eligible === 1 ? '' : 's'}, nobody asked yet`,
+          detail: `${where} · posted ${age} day${age === 1 ? '' : 's'} ago`,
           jobId: job.id,
-          size: Math.min(3, bucket.total),
+          size: Math.min(3, bucket.eligible),
           terms: offerTerms(Number(job.rate_amount), job.rate_period, Number(job.commission_percent)).sentence,
         })
       }

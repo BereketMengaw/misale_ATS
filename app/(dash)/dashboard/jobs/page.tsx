@@ -1,10 +1,12 @@
 import Link from 'next/link'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { describeSchedule, type Schedule } from '@/lib/placements/schedule'
+import { genderExcluded } from '@/lib/scoring/rank'
 import { formatEtb } from '@/lib/money/commission'
 import { rateSuffix } from '@/lib/ui/labels'
 import { Button } from '@/components/ui/button'
 import {
+  ActionForm,
   Badge,
   Card,
   EmptyState,
@@ -37,6 +39,8 @@ type JobRow = {
   schedule: Schedule | null
   applicants: number
   asked: number
+  eligible: number
+  barred: string | null
   accepted: { applicationId: number; name: string } | null
   phase: Phase
 }
@@ -62,7 +66,7 @@ export default async function JobsPage({
   const { data: jobs, error } = await db
     .from('job_posts')
     .select(
-      'id, subject, grade, area, days_per_week, rate_amount, rate_period, status, approved_at, created_at, generated_by, clients(full_name)',
+      'id, subject, grade, area, days_per_week, rate_amount, rate_period, status, approved_at, created_at, generated_by, gender_pref, clients(full_name)',
     )
     .order('created_at', { ascending: false })
 
@@ -70,18 +74,38 @@ export default async function JobsPage({
 
   const [{ data: apps }, { data: placements }] = ids.length
     ? await Promise.all([
-        db.from('applications').select('id, job_post_id, status, candidates(full_name)').in('job_post_id', ids),
+        db.from('applications').select('id, job_post_id, status, candidates(full_name, gender)').in('job_post_id', ids),
         db.from('placements').select('job_post_id, schedule, candidates(full_name)').in('job_post_id', ids),
       ])
     : [{ data: [] }, { data: [] }]
 
-  const counts = new Map<number, { total: number; asked: number; accepted: { applicationId: number; name: string } | null }>()
+  const prefByJob = new Map((jobs ?? []).map((j) => [j.id, j.gender_pref as string | null]))
+
+  type Bucket = {
+    total: number
+    asked: number
+    eligible: number
+    barred: string | null
+    accepted: { applicationId: number; name: string } | null
+  }
+
+  const counts = new Map<number, Bucket>()
   for (const a of apps ?? []) {
-    const bucket = counts.get(a.job_post_id) ?? { total: 0, asked: 0, accepted: null }
+    const bucket: Bucket =
+      counts.get(a.job_post_id) ?? { total: 0, asked: 0, eligible: 0, barred: null, accepted: null }
+    const c = a.candidates as unknown as { full_name: string | null; gender: string | null } | null
     bucket.total += 1
-    if (['shortlisted', 'presented', 'commission_agreed', 'hired'].includes(a.status)) bucket.asked += 1
+
+    if (['shortlisted', 'presented', 'commission_agreed', 'hired'].includes(a.status)) {
+      bucket.asked += 1
+    } else {
+      // Only applicants the job's own preference allows can actually be asked.
+      const barred = genderExcluded(prefByJob.get(a.job_post_id), c?.gender ?? null)
+      if (barred) bucket.barred = barred
+      else bucket.eligible += 1
+    }
+
     if (a.status === 'commission_agreed' && !bucket.accepted) {
-      const c = a.candidates as unknown as { full_name: string | null } | null
       bucket.accepted = { applicationId: a.id, name: c?.full_name ?? 'the tutor' }
     }
     counts.set(a.job_post_id, bucket)
@@ -98,7 +122,7 @@ export default async function JobsPage({
   )
 
   const rows: JobRow[] = (jobs ?? []).map((j) => {
-    const bucket = counts.get(j.id) ?? { total: 0, asked: 0, accepted: null }
+    const bucket = counts.get(j.id) ?? { total: 0, asked: 0, eligible: 0, barred: null, accepted: null }
     const placement = placementByJob.get(j.id)
     const client = j.clients as unknown as { full_name: string } | null
     return {
@@ -117,6 +141,8 @@ export default async function JobsPage({
       schedule: placement?.schedule ?? null,
       applicants: bucket.total,
       asked: bucket.asked,
+      eligible: bucket.eligible,
+      barred: bucket.barred,
       accepted: bucket.accepted,
       phase: j.status === 'open' ? 'live' : j.status === 'draft' ? 'draft' : 'filled',
     }
@@ -255,6 +281,9 @@ function summarise(job: JobRow): string {
     return job.approvedAt ? base : `${base} · written by ${job.generatedBy}`
   }
   if (job.applicants === 0) return `${base} · nobody has applied · posted ${ageInDays(job.createdAt)} days ago`
+  if (job.asked === 0 && job.eligible === 0) {
+    return `${base} · ${job.applicants} applied · ${job.barred ?? 'none eligible'}`
+  }
   return `${base} · ${job.applicants} applied · ${job.asked === 0 ? 'nobody asked' : `${job.asked} asked`}`
 }
 
@@ -286,28 +315,35 @@ function Signal({ job }: { job: JobRow }) {
     return (
       <div className="flex items-center gap-3">
         <Badge tone="green">Ready to hire</Badge>
-        <form action={hire}>
-          <input type="hidden" name="id" value={job.id} />
-          <input type="hidden" name="applicationId" value={job.accepted.applicationId} />
+        <ActionForm action={hire} fields={{ id: job.id, applicationId: job.accepted.applicationId }}>
           <Button variant="success" size="sm" pendingLabel="Hiring…">
             Hire {job.accepted.name.split(' ')[0]}
           </Button>
-        </form>
+        </ActionForm>
       </div>
     )
   }
 
-  if (job.applicants > 0 && job.asked === 0) {
+  if (job.applicants > 0 && job.asked === 0 && job.eligible === 0) {
+    return (
+      <div className="flex items-center gap-3">
+        <Badge tone="amber">Nobody you can ask</Badge>
+        <LinkButton href={`/dashboard/jobs/${job.id}`} variant="secondary" size="sm">
+          Review
+        </LinkButton>
+      </div>
+    )
+  }
+
+  if (job.eligible > 0 && job.asked === 0) {
     return (
       <div className="flex items-center gap-3">
         <Badge tone="blue">Needs a shortlist</Badge>
-        <form action={presentTop}>
-          <input type="hidden" name="id" value={job.id} />
-          <input type="hidden" name="size" value={Math.min(3, job.applicants)} />
+        <ActionForm action={presentTop} fields={{ id: job.id, size: Math.min(3, job.eligible) }}>
           <Button variant="primary" size="sm" pendingLabel="Asking…">
-            Ask top {Math.min(3, job.applicants)}
+            Ask top {Math.min(3, job.eligible)}
           </Button>
-        </form>
+        </ActionForm>
       </div>
     )
   }

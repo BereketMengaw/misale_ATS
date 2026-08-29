@@ -6,6 +6,7 @@ import { supabaseAdmin } from '@/lib/supabase/admin'
 import { supabaseServer } from '@/lib/supabase/server'
 import { normalizeFormData, parseJobFields, toAiFields } from '@/lib/jobs/fields'
 import { writePost } from '@/lib/ai/provider'
+import type { ActionState } from '@/components/ui/action-form'
 
 export type FormState = { errors?: Record<string, string> }
 
@@ -173,34 +174,55 @@ export async function markManualPosted(formData: FormData): Promise<void> {
   revalidatePath('/dashboard')
 }
 
-/** Ask the top N to accept the commission. The 3, then the 5. */
-export async function presentTop(formData: FormData): Promise<void> {
+/**
+ * Ask the top N to accept the commission. The 3, then the 5.
+ *
+ * It reports refusals. presentBatch declines when nobody is eligible — an
+ * applicant the job's gender preference bars, for instance — and swallowing
+ * that left the operator clicking a button that did nothing.
+ */
+export async function presentTop(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
   const jobId = Number(formData.get('id'))
   const size = Number(formData.get('size'))
-  if (!jobId || !size) return
+  if (!jobId || !size) return { error: 'Missing job.' }
 
   const { presentBatch } = await import('@/lib/hiring/service')
-  await presentBatch(jobId, size, await currentOperatorId())
+  const result = await presentBatch(jobId, size, await currentOperatorId())
 
   revalidatePath(`/dashboard/jobs/${jobId}`)
   revalidatePath('/dashboard')
+  revalidatePath('/dashboard/jobs')
+
+  if (result.error) return { error: result.error }
+  if (result.presented === 0) return { error: 'Nobody new to ask.' }
+  if (result.messaged < result.presented) {
+    return {
+      ok: `Asked ${result.presented}, but only ${result.messaged} could be reached on Telegram.`,
+    }
+  }
+  return { ok: `Asked ${result.presented}.` }
 }
 
 /**
  * Hire. Closes the job, tells the tutor, tells everyone else honestly, and
  * rewrites every channel post to FILLED.
  */
-export async function hire(formData: FormData): Promise<void> {
+export async function hire(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const jobId = Number(formData.get('id'))
   const applicationId = Number(formData.get('applicationId'))
-  if (!jobId || !applicationId) return
+  if (!jobId || !applicationId) return { error: 'Missing application.' }
 
   const { hireCandidate } = await import('@/lib/hiring/service')
-  await hireCandidate(applicationId, await currentOperatorId())
+  const result = await hireCandidate(applicationId, await currentOperatorId())
 
   revalidatePath(`/dashboard/jobs/${jobId}`)
   revalidatePath('/dashboard/jobs')
   revalidatePath('/dashboard')
+
+  return result.ok ? {} : { error: result.error }
 }
 
 /** Attach the parent paying for the lessons. Introductions need someone to introduce to. */

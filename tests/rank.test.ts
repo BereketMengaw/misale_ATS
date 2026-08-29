@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { compareRanked, DEFAULT_WEIGHTS, rank, type RankableCandidate, type RankableJob } from '@/lib/scoring/rank'
+import { compareRanked, DEFAULT_WEIGHTS, genderExcluded, rank, type RankableCandidate, type RankableJob } from '@/lib/scoring/rank'
 
 const job: RankableJob = {
   subject: 'Mathematics',
@@ -122,5 +122,31 @@ describe('ordering', () => {
     const a = { rank: rank(job, { ...ideal, education: 'degree', rating: null }) }
     const b = { rank: rank(job, { ...ideal, subjects: ['History'], area: 'Bole' }) }
     expect(compareRanked(a, b)).toBeLessThan(0)
+  })
+})
+
+describe('genderExcluded — the filter the boards must respect', () => {
+  it('bars a candidate the job explicitly did not ask for', () => {
+    expect(genderExcluded('female', 'male')).toBe('Job asks for a female tutor')
+    expect(genderExcluded('male', 'female')).toBe('Job asks for a male tutor')
+  })
+
+  it('lets everyone through when the job has no preference', () => {
+    expect(genderExcluded('any', 'male')).toBeNull()
+    expect(genderExcluded(null, 'male')).toBeNull()
+    expect(genderExcluded(undefined, 'female')).toBeNull()
+  })
+
+  it('does not bar a candidate whose gender is unknown', () => {
+    expect(genderExcluded('female', null)).toBeNull()
+    expect(genderExcluded('female', undefined)).toBeNull()
+  })
+
+  it('agrees with rank(), which is the whole point of sharing it', () => {
+    const job: RankableJob = { subject: 'Maths', grade: 'Grade 9', area: 'Bole', daysPerWeek: 3, genderPref: 'female' }
+    const candidate: RankableCandidate = { subjects: ['Maths'], grades: ['Grade 9'], area: 'Bole', availability: null, experience: 'over_5', education: 'degree', rating: null, gender: 'male' }
+    const result = rank(job, candidate)
+    expect(result.excluded).toBe(true)
+    expect(result.excludedReason).toBe(genderExcluded('female', 'male'))
   })
 })

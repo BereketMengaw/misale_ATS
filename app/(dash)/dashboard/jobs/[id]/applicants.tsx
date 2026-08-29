@@ -2,7 +2,7 @@ import Link from 'next/link'
 import type { Applicant } from '@/lib/scoring/board'
 import { applicationLabel, offerTerms } from '@/lib/ui/labels'
 import { hire, presentTop } from '../actions'
-import { Badge, Meter } from '@/components/ui'
+import { ActionForm, Badge, Meter } from '@/components/ui'
 import { Button } from '@/components/ui/button'
 
 /**
@@ -46,13 +46,11 @@ export function Applicants({
               {[accepted.area, accepted.phone].filter(Boolean).join(' · ')}
             </p>
           </div>
-          <form action={hire}>
-            <input type="hidden" name="id" value={jobId} />
-            <input type="hidden" name="applicationId" value={accepted.applicationId} />
+          <ActionForm action={hire} fields={{ id: jobId, applicationId: accepted.applicationId }}>
             <Button variant="success" pendingLabel="Hiring…">
               Hire {accepted.name.split(' ')[0]}
             </Button>
-          </form>
+          </ActionForm>
         </div>
       )}
 
@@ -67,9 +65,7 @@ export function Applicants({
               <span className="font-medium text-neutral-700">They will be told:</span> {terms.sentence}
             </p>
           </div>
-          <form action={presentTop}>
-            <input type="hidden" name="id" value={jobId} />
-            <input type="hidden" name="size" value={presentedAny ? 5 : 3} />
+          <ActionForm action={presentTop} fields={{ id: jobId, size: presentedAny ? 5 : 3 }}>
             <Button
               variant="primary"
               size="sm"
@@ -78,7 +74,7 @@ export function Applicants({
             >
               {presentedAny ? `+${Math.min(5, untouched.length)} more` : `Ask top ${Math.min(3, untouched.length)}`}
             </Button>
-          </form>
+          </ActionForm>
         </div>
       )}
 
