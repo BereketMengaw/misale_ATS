@@ -61,8 +61,9 @@ const TABLES = [
   'post_publications',
 ] as const
 
-// One unreachable database should not print fifteen failures.
-const probe = await safe(() => db.from('operators').select('*', { count: 'exact', head: true }))
+// A HEAD request against a missing table returns no body, and supabase-js then
+// reports no error — so every existence check has to ask for an actual row.
+const probe = await safe(() => db.from('operators').select('*').limit(1))
 const reachable = !probe.error || !/fetch failed|ENOTFOUND|ECONNREFUSED/i.test(probe.error.message)
 
 if (!reachable) {
@@ -71,7 +72,7 @@ if (!reachable) {
 
 if (reachable) {
   for (const table of TABLES) {
-    const { error } = await safe(() => db.from(table).select('*', { count: 'exact', head: true }))
+    const { error } = await safe(() => db.from(table).select('*').limit(1))
     if (error) {
       fail(`Table ${table}`, error.message, 'Run the migrations in supabase/migrations, oldest first.')
     } else {
@@ -115,7 +116,7 @@ for (const key of ['commission', 'contact_release', 'ranking_weights', 'post_exp
 
 // Someone has to be able to log in.
 {
-  const { count } = await safe(() => db.from('operators').select('*', { count: 'exact', head: true }))
+  const { count } = await safe(() => db.from('operators').select('*', { count: 'exact' }).limit(1))
   count && count > 0
     ? pass('Operators', `${count} can log in`)
     : fail(
