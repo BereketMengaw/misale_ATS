@@ -1,13 +1,30 @@
 import Link from 'next/link'
 import { applicantsFor } from '@/lib/scoring/board'
+import { hire, presentTop } from '../actions'
+
+const STAGE: Record<string, { label: string; tone: string }> = {
+  applied: { label: 'Applied', tone: 'bg-neutral-100 text-neutral-600' },
+  ranked: { label: 'Ranked', tone: 'bg-neutral-100 text-neutral-600' },
+  shortlisted: { label: 'Asked to accept', tone: 'bg-blue-100 text-blue-800' },
+  commission_agreed: { label: 'Accepted', tone: 'bg-green-100 text-green-800' },
+  hired: { label: 'Hired', tone: 'bg-green-600 text-white' },
+  rejected: { label: 'Declined / not chosen', tone: 'bg-neutral-100 text-neutral-400' },
+  pooled: { label: 'Told it was filled', tone: 'bg-neutral-100 text-neutral-400' },
+}
 
 /**
  * The applicant board. Shows the score with its breakdown rather than a
  * sentence: "subject +30, area +20" is more useful, and it is defensible to a
  * candidate who asks why they were not picked.
  */
-export async function Applicants({ jobId }: { jobId: number }) {
+export async function Applicants({ jobId, jobOpen }: { jobId: number; jobOpen: boolean }) {
   const applicants = await applicantsFor(jobId)
+
+  const untouched = applicants.filter((a) => !a.rank.excluded && a.status === 'applied')
+  const inPlay = applicants.filter((a) =>
+    ['shortlisted', 'commission_agreed', 'hired'].includes(a.status),
+  )
+  const presentedAny = inPlay.length > 0
 
   return (
     <section className="space-y-3 rounded-md border border-neutral-200 bg-white p-4">
@@ -19,6 +36,23 @@ export async function Applicants({ jobId }: { jobId: number }) {
           <span className="text-xs text-neutral-400">Ranked best first</span>
         )}
       </div>
+
+      {jobOpen && untouched.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 rounded-md border border-neutral-200 bg-neutral-50 p-3">
+          <span className="text-sm text-neutral-600">
+            {presentedAny ? 'Not enough? Ask more.' : 'Ask the best few to accept the commission.'}
+          </span>
+          <form action={presentTop}>
+            <input type="hidden" name="id" value={jobId} />
+            <input type="hidden" name="size" value={presentedAny ? 5 : 3} />
+            <button className="rounded-md bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white">
+              {presentedAny
+                ? `+${Math.min(5, untouched.length)} more`
+                : `Ask top ${Math.min(3, untouched.length)}`}
+            </button>
+          </form>
+        </div>
+      )}
 
       {applicants.length === 0 && (
         <p className="text-sm text-neutral-500">
@@ -50,14 +84,29 @@ export async function Applicants({ jobId }: { jobId: number }) {
                 </p>
               </div>
 
-              {a.rank.excluded ? (
-                <span className="rounded-full bg-neutral-200 px-2.5 py-1 text-xs text-neutral-700">
-                  {a.rank.excludedReason}
+              <div className="flex shrink-0 items-center gap-3">
+                <span className={`rounded-full px-2.5 py-1 text-xs ${STAGE[a.status]?.tone ?? 'bg-neutral-100 text-neutral-600'}`}>
+                  {STAGE[a.status]?.label ?? a.status}
                 </span>
-              ) : (
-                <Score value={a.rank.score} />
-              )}
+                {a.rank.excluded ? (
+                  <span className="rounded-full bg-neutral-200 px-2.5 py-1 text-xs text-neutral-700">
+                    {a.rank.excludedReason}
+                  </span>
+                ) : (
+                  <Score value={a.rank.score} />
+                )}
+              </div>
             </div>
+
+            {jobOpen && a.status === 'commission_agreed' && (
+              <form action={hire} className="mt-3">
+                <input type="hidden" name="id" value={jobId} />
+                <input type="hidden" name="applicationId" value={a.applicationId} />
+                <button className="rounded-md bg-green-700 px-4 py-1.5 text-xs font-medium text-white">
+                  Hire {a.name.split(' ')[0]}
+                </button>
+              </form>
+            )}
 
             {!a.rank.excluded && (
               <ul className="mt-2 flex flex-wrap gap-1.5">

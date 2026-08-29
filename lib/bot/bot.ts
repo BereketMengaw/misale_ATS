@@ -8,6 +8,7 @@ import { countApply, getJob, isLive, listOpenJobs } from './jobs'
 import { parseApplyPayload } from '@/lib/jobs/apply-link'
 import { beginRegistration, handleRegisterCallback, handleRegisterMessage } from './flows/register'
 import { applyToJob, findCandidate } from '@/lib/candidates/store'
+import { recordCommissionDecision } from '@/lib/hiring/service'
 
 let cached: Bot | null = null
 
@@ -71,6 +72,20 @@ function register(bot: Bot) {
   bot.callbackQuery(/^reg:([a-z]+):(.+)$/, async (ctx) => {
     const handled = await handleRegisterCallback(ctx, ctx.match[1], ctx.match[2])
     if (!handled) await ctx.answerCallbackQuery({ text: copy.notReadyYet })
+  })
+
+  // Accept or decline the commission. There is no third button on purpose:
+  // a counter-offer is a negotiation, and a negotiation is a conversation.
+  bot.callbackQuery(/^comm:(\d+):(yes|no)$/, async (ctx) => {
+    const applicationId = Number(ctx.match[1])
+    const accepted = ctx.match[2] === 'yes'
+    await ctx.answerCallbackQuery()
+
+    const reply_ = await recordCommissionDecision(applicationId, accepted)
+    // Take the buttons off so it cannot be answered twice.
+    await ctx.editMessageReplyMarkup({ reply_markup: undefined }).catch(() => {})
+
+    if (reply_) await reply(ctx, reply_)
   })
 
   // Tapping one of the "here is what's open now" buttons.

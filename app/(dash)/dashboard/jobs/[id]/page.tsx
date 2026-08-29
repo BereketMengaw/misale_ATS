@@ -5,6 +5,7 @@ import { regenerateJob, saveBody, setApproval } from '../actions'
 import { PublishPanel } from './publish-panel'
 import { formatEtb, split } from '@/lib/money/commission'
 import { Applicants } from './applicants'
+import { ClientPanel } from './client-panel'
 
 export const dynamic = 'force-dynamic'
 
@@ -50,10 +51,16 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
         </div>
         <span
           className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${
-            approved ? 'bg-green-100 text-green-800' : 'bg-neutral-200 text-neutral-700'
+            job.status === 'closed_filled'
+              ? 'bg-green-600 text-white'
+              : job.status === 'open'
+                ? 'bg-blue-100 text-blue-800'
+                : approved
+                  ? 'bg-green-100 text-green-800'
+                  : 'bg-neutral-200 text-neutral-700'
           }`}
         >
-          {approved ? 'Approved' : 'Draft'}
+          {job.status === 'closed_filled' ? 'Filled' : job.status === 'open' ? 'Open' : approved ? 'Approved' : 'Draft'}
         </span>
       </div>
 
@@ -87,7 +94,9 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
         </form>
       </div>
 
-      <Applicants jobId={job.id} />
+      <ClientPanel jobId={job.id} />
+
+      <Applicants jobId={job.id} jobOpen={job.status === 'open'} />
 
       <PublishPanel jobId={job.id} approved={approved} />
 

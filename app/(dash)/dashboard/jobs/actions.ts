@@ -169,3 +169,50 @@ export async function markManualPosted(formData: FormData): Promise<void> {
   revalidatePath(`/dashboard/jobs/${jobId}`)
   revalidatePath('/dashboard/jobs')
 }
+
+/** Ask the top N to accept the commission. The 3, then the 5. */
+export async function presentTop(formData: FormData): Promise<void> {
+  const jobId = Number(formData.get('id'))
+  const size = Number(formData.get('size'))
+  if (!jobId || !size) return
+
+  const { presentBatch } = await import('@/lib/hiring/service')
+  await presentBatch(jobId, size, await currentOperatorId())
+
+  revalidatePath(`/dashboard/jobs/${jobId}`)
+}
+
+/**
+ * Hire. Closes the job, tells the tutor, tells everyone else honestly, and
+ * rewrites every channel post to FILLED.
+ */
+export async function hire(formData: FormData): Promise<void> {
+  const jobId = Number(formData.get('id'))
+  const applicationId = Number(formData.get('applicationId'))
+  if (!jobId || !applicationId) return
+
+  const { hireCandidate } = await import('@/lib/hiring/service')
+  await hireCandidate(applicationId, await currentOperatorId())
+
+  revalidatePath(`/dashboard/jobs/${jobId}`)
+  revalidatePath('/dashboard/jobs')
+}
+
+/** Attach the parent paying for the lessons. Introductions need someone to introduce to. */
+export async function setClient(formData: FormData): Promise<void> {
+  const jobId = Number(formData.get('id'))
+  const fullName = String(formData.get('clientName') ?? '').trim()
+  const phone = String(formData.get('clientPhone') ?? '').trim()
+  if (!jobId || !fullName) return
+
+  const db = supabaseAdmin()
+  const { data: client } = await db
+    .from('clients')
+    .insert({ full_name: fullName, phone: phone || null })
+    .select('id')
+    .single()
+
+  if (client) await db.from('job_posts').update({ client_id: client.id }).eq('id', jobId)
+
+  revalidatePath(`/dashboard/jobs/${jobId}`)
+}
