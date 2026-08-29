@@ -5,7 +5,7 @@ import { previewPool } from '@/lib/talent/service'
 import { formatEtb, prepaymentCents, split } from '@/lib/money/commission'
 import { jobLabel, rateSuffix } from '@/lib/ui/labels'
 import { regenerateJob, saveBody, setApproval } from '../actions'
-import { Badge, PageHeader, PageShell } from '@/components/ui'
+import { Badge, LinkButton, PageHeader, PageShell } from '@/components/ui'
 import { Button } from '@/components/ui/button'
 import { inputClass } from '@/components/ui/styles'
 import { Phase, Stepper, type PhaseState } from './phase'
@@ -153,6 +153,15 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
                   Rewrite from fields
                 </Button>
               </form>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3 border-t border-neutral-100 pt-4">
+              <LinkButton href={`/dashboard/jobs/${job.id}/edit`} variant="secondary" size="sm">
+                Edit the job&rsquo;s details
+              </LinkButton>
+              <span className="text-xs text-neutral-400">
+                Subject, area, pay, commission and who it asks for.
+              </span>
             </div>
 
             <details className="border-t border-neutral-100 pt-4">

@@ -287,3 +287,67 @@ export async function setSchedule(_prev: ScheduleState, formData: FormData): Pro
   if (placement) revalidatePath(`/dashboard/jobs/${placement.job_post_id}`)
   return { ok: 'Saved.' }
 }
+
+/**
+ * Change a job's facts after it exists.
+ *
+ * Until this, subject, area, rate, commission and the gender preference were
+ * write-once: a job asking for a female tutor could only be corrected in the
+ * database, and the gender preference is a hard filter that decides who can be
+ * asked at all. "Rewrite from fields" reads these; it never could change them.
+ *
+ * The post is regenerated when it was machine-written, and left alone when it
+ * was edited by hand — rewriting over somebody's own words is not a save.
+ * Either way approval is cleared, because the facts he approved have moved.
+ */
+export async function updateJob(_prev: FormState, formData: FormData): Promise<FormState> {
+  const id = Number(formData.get('id'))
+  if (!id) return { errors: { form: 'Missing job.' } }
+
+  const parsed = parseJobFields(normalizeFormData(formData))
+  if (!parsed.ok) return { errors: parsed.errors }
+
+  const values = parsed.values
+  const db = supabaseAdmin()
+
+  const { data: job } = await db
+    .from('job_posts')
+    .select('id, body_edited')
+    .eq('id', id)
+    .maybeSingle()
+  if (!job) return { errors: { form: 'Job not found.' } }
+
+  const fields = {
+    subject: values.subject,
+    grade: values.grade,
+    area: values.area,
+    days_per_week: values.daysPerWeek,
+    hours_per_session: values.hoursPerSession,
+    rate_amount: values.rateAmount,
+    rate_period: values.ratePeriod,
+    gender_pref: values.genderPref,
+    starts_on: values.startsOn,
+    notes: values.notes,
+    commission_percent: values.commissionPercent,
+    approved_at: null,
+  }
+
+  const rewrite = !job.body_edited
+  const draft = rewrite ? await writePost(toAiFields(values)) : null
+
+  const { error } = await db
+    .from('job_posts')
+    .update(
+      draft
+        ? { ...fields, body: draft.body, generated_by: draft.generatedBy, body_edited: false }
+        : fields,
+    )
+    .eq('id', id)
+
+  if (error) return { errors: { form: error.message } }
+
+  revalidatePath(`/dashboard/jobs/${id}`)
+  revalidatePath('/dashboard/jobs')
+  revalidatePath('/dashboard')
+  redirect(`/dashboard/jobs/${id}`)
+}
