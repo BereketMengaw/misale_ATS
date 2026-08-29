@@ -34,6 +34,31 @@ export const copy = {
     en: 'What would you like to do?',
   },
 
+  applyingFor: {
+    am: 'እያመለከቱ ያሉት ለዚህ ስራ ነው፦',
+    en: "You're applying for:",
+  },
+
+  applyNext: {
+    am: 'ለመቀጠል ከታች ያለውን ይጫኑ። ምዝገባው በአዝራር ብቻ ነው።',
+    en: 'Tap below to continue. The whole registration is buttons.',
+  },
+
+  jobFilled: {
+    am: 'ይቅርታ፣ ይህ ቦታ ተይዟል። አሁን ክፍት የሆኑት ከታች ናቸው።',
+    en: 'Sorry — this position has been filled. Here is what is open now.',
+  },
+
+  jobNotFound: {
+    am: 'ይህ ማስታወቂያ አልተገኘም። አሁን ክፍት የሆኑት ከታች ናቸው።',
+    en: 'That posting could not be found. Here is what is open now.',
+  },
+
+  noOpenJobs: {
+    am: 'በአሁኑ ጊዜ ክፍት ስራ የለም። ይመዝገቡ — አዲስ ሲወጣ እናሳውቅዎታለን።',
+    en: 'Nothing is open right now. Register, and we will message you when something fits.',
+  },
+
   notReadyYet: {
     am: 'ይህ ክፍል ገና እየተዘጋጀ ነው። በቅርቡ ይመለሱ።',
     en: "This part isn't ready yet. Check back soon.",
@@ -44,6 +69,8 @@ export const copy = {
     register: { am: 'እንደ አስተማሪ ይመዝገቡ', en: 'Register as a tutor' },
     myProfile: { am: 'የእኔ መገለጫ', en: 'My profile' },
     faq: { am: 'ተደጋጋሚ ጥያቄዎች', en: 'FAQ' },
+    applyNow: { am: 'ለዚህ ስራ አመልክት', en: 'Apply for this job' },
+    backToMenu: { am: 'ወደ ዋና ገጽ', en: 'Main menu' },
     amharic: 'አማርኛ',
     english: 'English',
   },

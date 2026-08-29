@@ -133,3 +133,41 @@ export async function setApproval(formData: FormData): Promise<void> {
   revalidatePath(`/dashboard/jobs/${id}`)
   revalidatePath('/dashboard/jobs')
 }
+
+/** Publish an approved job to the selected channels. */
+export async function publishToChannels(formData: FormData): Promise<void> {
+  const id = Number(formData.get('id'))
+  const channelIds = formData
+    .getAll('channelIds')
+    .map((v) => Number(v))
+    .filter((n) => Number.isInteger(n))
+
+  if (!id || channelIds.length === 0) return
+
+  const { publishJob } = await import('@/lib/telegram/publish')
+  await publishJob(id, channelIds, await currentOperatorId())
+
+  revalidatePath(`/dashboard/jobs/${id}`)
+  revalidatePath('/dashboard/jobs')
+}
+
+/**
+ * A channel the bot cannot post to. The operator pastes the pack, then stamps
+ * it here — which is what makes the post countable and closable later.
+ */
+export async function markManualPosted(formData: FormData): Promise<void> {
+  const publicationId = Number(formData.get('publicationId'))
+  const jobId = Number(formData.get('id'))
+  if (!publicationId) return
+
+  const db = supabaseAdmin()
+  await db
+    .from('post_publications')
+    .update({ posted_at: new Date().toISOString(), posted_by: await currentOperatorId() })
+    .eq('id', publicationId)
+
+  await db.from('job_posts').update({ status: 'open' }).eq('id', jobId).eq('status', 'draft')
+
+  revalidatePath(`/dashboard/jobs/${jobId}`)
+  revalidatePath('/dashboard/jobs')
+}

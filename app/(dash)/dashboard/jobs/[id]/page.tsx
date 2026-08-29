@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { regenerateJob, saveBodies, setApproval } from '../actions'
+import { PublishPanel } from './publish-panel'
 
 export const dynamic = 'force-dynamic'
 
@@ -83,11 +84,7 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
         </form>
       </div>
 
-      {approved && (
-        <p className="rounded-md border border-green-200 bg-green-50 p-3 text-sm text-green-900">
-          Approved and ready. Publishing to channels arrives in step 3.
-        </p>
-      )}
+      <PublishPanel jobId={job.id} approved={approved} />
 
       <details className="rounded-md border border-neutral-200 bg-white p-4">
         <summary className="cursor-pointer text-sm font-medium">Edit the text by hand</summary>

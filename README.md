@@ -4,7 +4,9 @@ A tutoring agency that runs itself. A Telegram bot writes and publishes job post
 ranks tutors, places them with parents, tracks lessons, bills parents and works out payouts. A web
 dashboard is the only place a human touches it.
 
-**Status:** step 1 (foundations) built. Steps 2–12 remain — see [the build plan](docs/02-build-plan.md).
+**Status:** steps 1–3 built — foundations, job-post writing, publishing. That is the first
+stopping point: jobs can be posted properly, in both languages, in seconds. Steps 4–12 remain —
+see [the build plan](docs/02-build-plan.md).
 
 ## The one rule that shapes everything
 
@@ -43,6 +45,8 @@ Then, once:
    Signing in without this row gets you a dashboard that says so.
 3. **Webhook** — expose the dev server (`npx untun` / ngrok / a Vercel preview), set
    `NEXT_PUBLIC_APP_URL` to that origin, then `npm run bot:set-webhook`.
+4. **Test channel** — create a private channel, add the bot as an admin with "Post messages",
+   then add it under `/dashboard/channels`.
 
 `npm test` runs the unit tests; `npm run typecheck` and `npm run build` must both stay clean.
 

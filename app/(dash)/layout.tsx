@@ -29,6 +29,9 @@ export default async function DashLayout({ children }: { children: React.ReactNo
             <Link href="/dashboard/jobs" className="hover:text-neutral-900">
               Jobs
             </Link>
+            <Link href="/dashboard/channels" className="hover:text-neutral-900">
+              Channels
+            </Link>
           </nav>
         </div>
         <div className="flex items-center gap-4 text-sm text-neutral-500">
