@@ -1,0 +1,135 @@
+'use server'
+
+import { redirect } from 'next/navigation'
+import { revalidatePath } from 'next/cache'
+import { supabaseAdmin } from '@/lib/supabase/admin'
+import { supabaseServer } from '@/lib/supabase/server'
+import { normalizeFormData, parseJobFields, toAiFields } from '@/lib/jobs/fields'
+import { writePost } from '@/lib/ai/provider'
+
+export type FormState = { errors?: Record<string, string> }
+
+async function currentOperatorId(): Promise<string | null> {
+  const supabase = await supabaseServer()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  return user?.id ?? null
+}
+
+async function expiryDays(): Promise<number> {
+  const { data } = await supabaseAdmin()
+    .from('settings')
+    .select('value')
+    .eq('key', 'post_expiry_days')
+    .maybeSingle()
+  const value = Number(data?.value)
+  return Number.isFinite(value) && value > 0 ? value : 30
+}
+
+export async function createJob(_prev: FormState, formData: FormData): Promise<FormState> {
+  const parsed = parseJobFields(normalizeFormData(formData))
+  if (!parsed.ok) return { errors: parsed.errors }
+
+  const values = parsed.values
+  const draft = await writePost(toAiFields(values))
+
+  const days = await expiryDays()
+  const expiresAt = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString()
+
+  const { data, error } = await supabaseAdmin()
+    .from('job_posts')
+    .insert({
+      subject: values.subject,
+      grade: values.grade,
+      area: values.area,
+      days_per_week: values.daysPerWeek,
+      hours_per_session: values.hoursPerSession,
+      rate_amount: values.rateAmount,
+      rate_period: values.ratePeriod,
+      gender_pref: values.genderPref,
+      starts_on: values.startsOn,
+      notes: values.notes,
+      commission_percent: values.commissionPercent,
+      body_am: draft.am,
+      body_en: draft.en,
+      generated_by: draft.generatedBy,
+      expires_at: expiresAt,
+      created_by: await currentOperatorId(),
+    })
+    .select('id')
+    .single()
+
+  if (error) return { errors: { form: error.message } }
+
+  revalidatePath('/dashboard/jobs')
+  redirect(`/dashboard/jobs/${data.id}`)
+}
+
+/** Re-run the writer from the stored fields. Discards any hand edits. */
+export async function regenerateJob(formData: FormData): Promise<void> {
+  const id = Number(formData.get('id'))
+  const db = supabaseAdmin()
+
+  const { data: job, error } = await db.from('job_posts').select('*').eq('id', id).single()
+  if (error || !job) return
+
+  const draft = await writePost({
+    subject: job.subject,
+    grade: job.grade,
+    area: job.area,
+    daysPerWeek: job.days_per_week,
+    hoursPerSession: job.hours_per_session,
+    rateAmount: Number(job.rate_amount),
+    ratePeriod: job.rate_period,
+    genderPref: job.gender_pref,
+    startsOn: job.starts_on,
+    notes: job.notes,
+  })
+
+  await db
+    .from('job_posts')
+    .update({
+      body_am: draft.am,
+      body_en: draft.en,
+      generated_by: draft.generatedBy,
+      body_edited: false,
+      approved_at: null,
+    })
+    .eq('id', id)
+
+  revalidatePath(`/dashboard/jobs/${id}`)
+}
+
+/** Hand edits win over the generator until the operator regenerates. */
+export async function saveBodies(formData: FormData): Promise<void> {
+  const id = Number(formData.get('id'))
+  const bodyAm = String(formData.get('body_am') ?? '').trim()
+  const bodyEn = String(formData.get('body_en') ?? '').trim()
+  if (!id || !bodyAm || !bodyEn) return
+
+  await supabaseAdmin()
+    .from('job_posts')
+    .update({ body_am: bodyAm, body_en: bodyEn, body_edited: true, approved_at: null })
+    .eq('id', id)
+
+  revalidatePath(`/dashboard/jobs/${id}`)
+}
+
+/**
+ * Approve marks the draft ready. It does not publish — step 3 owns the move
+ * to `open`, the channels and the Apply deep link.
+ */
+export async function setApproval(formData: FormData): Promise<void> {
+  const id = Number(formData.get('id'))
+  const approve = formData.get('approve') === '1'
+  if (!id) return
+
+  await supabaseAdmin()
+    .from('job_posts')
+    .update({ approved_at: approve ? new Date().toISOString() : null })
+    .eq('id', id)
+
+  revalidatePath(`/dashboard/jobs/${id}`)
+  revalidatePath('/dashboard/jobs')
+}
