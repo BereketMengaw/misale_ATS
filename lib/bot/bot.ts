@@ -6,7 +6,7 @@ import { getSession, saveSession } from './session'
 import { logMessage } from './log'
 import { countApply, getJob, isLive, listOpenJobs } from './jobs'
 import { parseApplyPayload } from '@/lib/jobs/apply-link'
-import { parseParentPayload } from '@/lib/messaging/connect'
+import { parseAdminPayload, parseParentPayload } from '@/lib/messaging/connect'
 import { connectParent } from '@/lib/messaging/notify'
 import { parentBotCopy } from '@/lib/messaging/parent-bot'
 import { beginRegistration, handleRegisterCallback, handleRegisterMessage } from './flows/register'
@@ -57,6 +57,12 @@ function register(bot: Bot) {
     const parentId = parseParentPayload(payload)
     if (parentId !== null) {
       await handleParentConnect(ctx, parentId)
+      return
+    }
+
+    const operatorId = parseAdminPayload(payload)
+    if (operatorId) {
+      await handleAdminConnect(ctx, operatorId)
       return
     }
 
@@ -164,6 +170,25 @@ function register(bot: Bot) {
  * A job link, live or dead. A forwarded post or a screenshot from three weeks
  * ago must not dead-end: a filled link becomes a new applicant.
  */
+/** The operator linking their own Telegram, so the dashboard can reach their phone. */
+async function handleAdminConnect(ctx: Context, operatorId: string) {
+  const { error } = await supabaseAdmin()
+    .from('operators')
+    .update({ telegram_id: ctx.from!.id })
+    .eq('id', operatorId)
+
+  await reply(
+    ctx,
+    error
+      ? 'That link did not work. Open it again from the dashboard.'
+      : [
+          'Your phone is linked.',
+          '',
+          'From the dashboard you can now push any message here in one click, and send it from this phone.',
+        ].join('\n'),
+  )
+}
+
 /**
  * The parent's one tap. After this the bot may message them, which is what
  * makes invoices and receipts automatic and free.

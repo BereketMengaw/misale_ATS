@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { parentConnectLink, parentPayload, parseParentPayload } from '@/lib/messaging/connect'
+import {
+  adminConnectLink, adminPayload, parentConnectLink, parentPayload,
+  parseAdminPayload, parseParentPayload,
+} from '@/lib/messaging/connect'
 import { parseApplyPayload } from '@/lib/jobs/apply-link'
 import { parentBotCopy } from '@/lib/messaging/parent-bot'
 
@@ -31,6 +34,31 @@ describe('the parent connect link', () => {
 
   it('fits Telegram\'s 64-character start payload at any real id', () => {
     expect(parentPayload(2_000_000_000).length).toBeLessThanOrEqual(64)
+  })
+})
+
+describe('the operator connect link', () => {
+  const uuid = 'cdbcd741-0c25-43db-b8d2-111ad3bc9536'
+
+  it('round-trips the operator uuid', () => {
+    expect(parseAdminPayload(adminPayload(uuid))).toBe(uuid)
+    expect(adminConnectLink('bot', uuid)).toBe(`https://t.me/bot?start=admin_${uuid}`)
+  })
+
+  it('refuses a guessable id — anyone who guessed it would get the operator\'s messages', () => {
+    for (const bad of ['admin_1', 'admin_', 'admin', 'admin_notauuid', '']) {
+      expect(parseAdminPayload(bad), bad).toBeNull()
+    }
+  })
+
+  it('fits Telegram\'s payload limit', () => {
+    expect(adminPayload(uuid).length).toBeLessThanOrEqual(64)
+  })
+
+  it('cannot be confused with the other two deep links', () => {
+    expect(parseParentPayload(adminPayload(uuid))).toBeNull()
+    expect(parseAdminPayload('parent_1')).toBeNull()
+    expect(parseAdminPayload('job_2_1')).toBeNull()
   })
 })
 
