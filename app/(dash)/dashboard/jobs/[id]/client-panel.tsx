@@ -1,10 +1,9 @@
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { introductionAm } from '@/lib/messaging/parent'
-import { describeCost } from '@/lib/messaging/sms'
+import { SendCard } from '../../money/send-card'
 import { parentConnectLink } from '@/lib/messaging/connect'
 import { getBot } from '@/lib/bot/bot'
 import { setClient } from '../actions'
-import { CopyBox } from './copy-box'
 
 const input =
   'w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none'
@@ -89,17 +88,10 @@ export async function ClientPanel({ jobId }: { jobId: number }) {
                 Send this link once. After they tap it, every invoice and receipt reaches them
                 automatically &mdash; no SMS to send, and no 70-character limit.
               </p>
-              <CopyBox text={connectLink} />
-              {client.phone && (
-                <a
-                  href={`sms:${client.phone}?body=${encodeURIComponent(
-                    `ሚሳሌ፦ መልእክቶችን በቴሌግራም ለመቀበል ይህን ይጫኑ፦ ${connectLink}`,
-                  )}`}
-                  className="mt-2 inline-block rounded-md bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white"
-                >
-                  Open in Messages
-                </a>
-              )}
+              <SendCard
+                phone={client.phone}
+                body={`ሚሳሌ፦ መልእክቶችን በቴሌግራም ለመቀበል ይህን ይጫኑ፦ ${connectLink}`}
+              />
             </div>
           )}
         </>
@@ -127,16 +119,7 @@ export async function ClientPanel({ jobId }: { jobId: number }) {
           <p className="mt-0.5 text-xs text-green-800">
             {tutorName} has already been told. This is the half only you can send.
           </p>
-          <CopyBox text={intro} />
-          <p className="mt-1 text-xs text-green-700">{describeCost(intro)}</p>
-          {client?.phone && (
-            <a
-              href={`sms:${client.phone}?body=${encodeURIComponent(intro)}`}
-              className="mt-2 inline-block rounded-md bg-green-700 px-4 py-1.5 text-xs font-medium text-white"
-            >
-              Open in Messages
-            </a>
-          )}
+          <SendCard phone={client?.phone ?? null} body={intro} />
         </div>
       )}
     </section>

@@ -3,7 +3,7 @@
 import { useState } from 'react'
 
 /** The copy pack for a channel the bot cannot post to. */
-export function CopyBox({ text }: { text: string }) {
+export function CopyBox({ text, label = 'Copy post + link' }: { text: string; label?: string }) {
   const [copied, setCopied] = useState(false)
 
   async function copy() {
@@ -26,7 +26,7 @@ export function CopyBox({ text }: { text: string }) {
         onClick={copy}
         className="mt-2 rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-xs text-neutral-700"
       >
-        {copied ? 'Copied' : 'Copy post + link'}
+        {copied ? 'Copied' : label}
       </button>
     </div>
   )
