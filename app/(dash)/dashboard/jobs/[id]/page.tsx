@@ -1,125 +1,254 @@
-import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { supabaseAdmin } from '@/lib/supabase/admin'
-import { regenerateJob, saveBody, setApproval } from '../actions'
-import { PublishPanel } from './publish-panel'
+import { applicantsFor } from '@/lib/scoring/board'
+import { previewPool } from '@/lib/talent/service'
 import { formatEtb, split } from '@/lib/money/commission'
+import { jobLabel, rateSuffix } from '@/lib/ui/labels'
+import { regenerateJob, saveBody, setApproval } from '../actions'
+import { Badge, PageHeader, PageShell } from '@/components/ui'
+import { Button } from '@/components/ui/button'
+import { inputClass } from '@/components/ui/styles'
+import { Phase, Stepper, type PhaseState } from './phase'
+import { PublishPanel } from './publish-panel'
+import { TalentPanel } from './talent-panel'
 import { Applicants } from './applicants'
 import { ClientPanel } from './client-panel'
-import { TalentPanel } from './talent-panel'
+import { PlacementPanel } from './placement-panel'
 
 export const dynamic = 'force-dynamic'
 
-const RATE_LABEL: Record<string, string> = {
-  per_hour: '/hour',
-  per_session: '/session',
-  per_month: '/month',
-}
-
+/**
+ * A job, shown as the sequence it actually is.
+ *
+ * The old page rendered all eight panels at once, in an order that contradicted
+ * the work: Publishing sat below Applicants, though nothing can apply until it
+ * is published, and the Parent form sat at the top though it is only needed at
+ * hire time. Here each step collapses once it is done, and only the step he is
+ * on is open.
+ */
 export default async function JobPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const jobId = Number(id)
   if (!Number.isInteger(jobId)) notFound()
 
-  const { data: job } = await supabaseAdmin()
+  const db = supabaseAdmin()
+
+  const { data: job } = await db
     .from('job_posts')
-    .select('*')
+    .select('*, clients(id, full_name, phone, telegram_id)')
     .eq('id', jobId)
     .maybeSingle()
 
   if (!job) notFound()
 
+  const [{ data: publications }, { data: channels }, applicants, { data: matches }, { data: placement }] =
+    await Promise.all([
+      db
+        .from('post_publications')
+        .select('id, channel_id, method, posted_at, apply_count, error, channels(title)')
+        .eq('job_post_id', jobId),
+      db.from('channels').select('id, title, kind').eq('active', true).order('id'),
+      applicantsFor(jobId),
+      db
+        .from('talent_matches')
+        .select('candidate_id, score, sent_at, applied_at, error, candidates(full_name)')
+        .eq('job_post_id', jobId)
+        .order('score', { ascending: false }),
+      db
+        .from('placements')
+        .select('id, status, schedule, starts_on, ends_on, rate_amount, commission_percent, candidates(id, full_name, phone), clients(full_name, phone)')
+        .eq('job_post_id', jobId)
+        .maybeSingle(),
+    ])
+
+  const client = (job.clients as unknown as { id: number; full_name: string; phone: string | null; telegram_id: number | null } | null) ?? null
+  const pubs = publications ?? []
+  const sent = matches ?? []
+  const preview = job.status === 'open' ? await previewPool(jobId) : null
+
   const approved = Boolean(job.approved_at)
+  const published = pubs.length > 0
+  const filled = job.status === 'closed_filled'
+  const open = job.status === 'open'
+  const accepted = applicants.find((a) => a.status === 'commission_agreed')
+  const asked = applicants.filter((a) =>
+    ['shortlisted', 'presented', 'commission_agreed', 'hired'].includes(a.status),
+  ).length
+  const taps = pubs.reduce((n, p) => n + (p.apply_count ?? 0), 0)
+
+  // Exactly one phase is "current": the next thing that needs him.
+  const current: string = !approved
+    ? 'post'
+    : !published
+      ? 'publishing'
+      : open && !accepted && applicants.length === 0
+        ? 'pool'
+        : open
+          ? 'applicants'
+          : !client
+            ? 'parent'
+            : 'placement'
+
+  const state = (key: string, done: boolean): PhaseState =>
+    done ? 'done' : current === key ? 'current' : 'todo'
+
+  const status = jobLabel(job.status, job.approved_at)
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <Link href="/dashboard/jobs" className="text-sm text-neutral-500 underline underline-offset-2">
-            ← Jobs
-          </Link>
-          <h1 className="mt-2 text-lg font-semibold">
-            {job.subject} · {job.grade}
-          </h1>
-          <p className="text-sm text-neutral-500">
-            {job.area} · {job.days_per_week}×/week
-          </p>
-          <Money
-            gross={Number(job.rate_amount)}
-            percent={Number(job.commission_percent)}
-            period={RATE_LABEL[job.rate_period] ?? ''}
-          />
-        </div>
-        <span
-          className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${
-            job.status === 'closed_filled'
-              ? 'bg-green-600 text-white'
-              : job.status === 'open'
-                ? 'bg-blue-100 text-blue-800'
-                : approved
-                  ? 'bg-green-100 text-green-800'
-                  : 'bg-neutral-200 text-neutral-700'
-          }`}
+    <PageShell width="narrow">
+      <PageHeader
+        back={{ href: '/dashboard/jobs', label: 'Jobs' }}
+        title={`${job.subject} · ${job.grade}`}
+        subtitle={`${job.area} · ${job.days_per_week}×/week`}
+        aside={<Badge tone={status.tone}>{status.label}</Badge>}
+      />
+
+      <Money
+        gross={Number(job.rate_amount)}
+        percent={Number(job.commission_percent)}
+        period={rateSuffix(job.rate_period)}
+      />
+
+      <Stepper
+        steps={[
+          { label: 'Written', state: 'done' },
+          { label: 'Approved', state: state('post', approved) },
+          { label: 'Published', state: state('publishing', published) },
+          { label: 'Applicants', state: state('applicants', applicants.length > 0) },
+          { label: 'Hired', state: filled ? 'done' : accepted ? 'current' : 'todo' },
+          { label: 'Introduced', state: state('parent', filled && Boolean(client)) },
+        ]}
+      />
+
+      <div className="space-y-3">
+        <Phase
+          id="post"
+          title="The post"
+          state={state('post', approved)}
+          summary={`${job.generated_by}${job.body_edited ? ' · hand-edited' : ''} · ${job.body.length} characters`}
         >
-          {job.status === 'closed_filled' ? 'Filled' : job.status === 'open' ? 'Open' : approved ? 'Approved' : 'Draft'}
-        </span>
-      </div>
+          <div className="space-y-4">
+            <div className="whitespace-pre-wrap rounded-md border border-neutral-200 bg-neutral-50 p-4 text-sm leading-relaxed">
+              {job.body}
+            </div>
 
-      <Preview body={job.body} />
+            <div className="flex flex-wrap items-center gap-2">
+              <form action={setApproval}>
+                <input type="hidden" name="id" value={job.id} />
+                <input type="hidden" name="approve" value={approved ? '0' : '1'} />
+                <Button variant={approved ? 'secondary' : 'primary'} pendingLabel="Saving…">
+                  {approved ? 'Withdraw approval' : 'Approve'}
+                </Button>
+              </form>
+              <form action={regenerateJob}>
+                <input type="hidden" name="id" value={job.id} />
+                <Button
+                  variant="secondary"
+                  pendingLabel="Rewriting…"
+                  confirm={job.body_edited ? 'Rewriting discards the edits you made by hand. Continue?' : undefined}
+                >
+                  Rewrite from fields
+                </Button>
+              </form>
+            </div>
 
-      <p className="text-xs text-neutral-400">
-        Written by <code>{job.generated_by}</code>
-        {job.body_edited && ' · hand-edited since'}
-      </p>
+            <details className="border-t border-neutral-100 pt-4">
+              <summary className="cursor-pointer text-sm text-neutral-500 underline underline-offset-2">
+                Edit the text by hand
+              </summary>
+              <form action={saveBody} className="mt-3 space-y-3">
+                <input type="hidden" name="id" value={job.id} />
+                <textarea name="body" rows={14} defaultValue={job.body} className={inputClass} aria-label="Post text" />
+                <p className="text-xs text-neutral-400">Saving clears the approval, so you re-read it once.</p>
+                <Button variant="primary" pendingLabel="Saving…">
+                  Save text
+                </Button>
+              </form>
+            </details>
+          </div>
+        </Phase>
 
-      <div className="flex flex-wrap gap-2">
-        <form action={setApproval}>
-          <input type="hidden" name="id" value={job.id} />
-          <input type="hidden" name="approve" value={approved ? '0' : '1'} />
-          <button
-            className={`rounded-md px-4 py-2 text-sm font-medium ${
-              approved
-                ? 'border border-neutral-300 bg-white text-neutral-700'
-                : 'bg-neutral-900 text-white'
-            }`}
+        <Phase
+          id="publishing"
+          title="Publishing"
+          state={state('publishing', published)}
+          summary={
+            published
+              ? `${pubs.length} channel${pubs.length === 1 ? '' : 's'} · ${taps} apply tap${taps === 1 ? '' : 's'}`
+              : approved
+                ? 'Ready to publish'
+                : 'Approve it first'
+          }
+        >
+          <PublishPanel jobId={job.id} approved={approved} publications={pubs} channels={channels ?? []} />
+        </Phase>
+
+        {(open || sent.length > 0) && (
+          <Phase
+            id="pool"
+            title="Talent pool"
+            state={state('pool', sent.length > 0)}
+            summary={
+              sent.length > 0
+                ? `${sent.length} messaged · ${sent.filter((m) => m.applied_at).length} applied`
+                : preview && preview.chosen.length > 0
+                  ? `${preview.chosen.length} fit and have not applied`
+                  : 'Nobody fits yet'
+            }
           >
-            {approved ? 'Withdraw approval' : 'Approve'}
-          </button>
-        </form>
+            <TalentPanel jobId={job.id} preview={preview} sent={sent} />
+          </Phase>
+        )}
 
-        <form action={regenerateJob}>
-          <input type="hidden" name="id" value={job.id} />
-          <button className="rounded-md border border-neutral-300 bg-white px-4 py-2 text-sm text-neutral-700">
-            Rewrite from fields
-          </button>
-        </form>
-      </div>
+        <Phase
+          id="applicants"
+          title="Applicants"
+          state={state('applicants', applicants.length > 0)}
+          summary={
+            applicants.length === 0
+              ? 'Nobody yet'
+              : `${applicants.length} applied · ${asked === 0 ? 'nobody asked' : `${asked} asked`}${accepted ? ' · 1 accepted' : ''}`
+          }
+        >
+          <Applicants jobId={job.id} jobOpen={open} applicants={applicants} />
+        </Phase>
 
-      <ClientPanel jobId={job.id} />
-
-      <Applicants jobId={job.id} jobOpen={job.status === 'open'} />
-
-      <TalentPanel jobId={job.id} jobOpen={job.status === 'open'} />
-
-      <PublishPanel jobId={job.id} approved={approved} />
-
-      <details className="rounded-md border border-neutral-200 bg-white p-4">
-        <summary className="cursor-pointer text-sm font-medium">Edit the text by hand</summary>
-        <form action={saveBody} className="mt-4 space-y-3">
-          <input type="hidden" name="id" value={job.id} />
-          <textarea
-            name="body"
-            rows={14}
-            defaultValue={job.body}
-            className="w-full rounded-md border border-neutral-300 p-3 text-sm"
+        <Phase
+          id="parent"
+          title="The parent"
+          state={state('parent', Boolean(client))}
+          summary={
+            client
+              ? `${client.full_name}${client.telegram_id ? ' · on Telegram' : ''}`
+              : 'Needed before anyone can be introduced'
+          }
+        >
+          <ClientPanel
+            job={{
+              id: job.id,
+              subject: job.subject,
+              grade: job.grade,
+              area: job.area,
+              days_per_week: job.days_per_week,
+              status: job.status,
+              hired_application_id: job.hired_application_id,
+            }}
+            client={client}
           />
-          <p className="text-xs text-neutral-400">Saving clears the approval, so you re-read it once.</p>
-          <button className="rounded-md bg-neutral-900 px-4 py-2 text-sm font-medium text-white">
-            Save text
-          </button>
-        </form>
-      </details>
-    </div>
+        </Phase>
+
+        {placement && (
+          <Phase
+            id="placement"
+            title="The placement"
+            state={state('placement', Boolean(placement.schedule))}
+            summary={placement.schedule ? 'Schedule agreed' : 'No schedule noted yet'}
+          >
+            <PlacementPanel placement={placement} />
+          </Phase>
+        )}
+      </div>
+    </PageShell>
   )
 }
 
@@ -127,7 +256,7 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
 function Money({ gross, percent, period }: { gross: number; percent: number; period: string }) {
   const s = split(gross, percent)
   return (
-    <dl className="mt-2 flex flex-wrap gap-x-6 gap-y-1 text-sm">
+    <dl className="flex flex-wrap gap-x-6 gap-y-1 text-sm">
       <div className="flex gap-2">
         <dt className="text-neutral-500">Parent pays</dt>
         <dd className="font-medium tabular-nums">{formatEtb(s.grossCents)} ETB{period}</dd>
@@ -141,16 +270,5 @@ function Money({ gross, percent, period }: { gross: number; percent: number; per
         <dd className="font-medium tabular-nums text-green-800">{formatEtb(s.commissionCents)} ETB{period}</dd>
       </div>
     </dl>
-  )
-}
-
-function Preview({ body }: { body: string }) {
-  return (
-    <div className="max-w-xl">
-      <div className="whitespace-pre-wrap rounded-lg border border-neutral-200 bg-white p-4 text-sm leading-relaxed">
-        {body}
-      </div>
-      <p className="mt-1 text-xs text-neutral-400">{body.length} / 4096 characters</p>
-    </div>
   )
 }

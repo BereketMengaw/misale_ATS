@@ -2,12 +2,11 @@
 
 import { useActionState } from 'react'
 import { addChannel, type ChannelFormState } from './actions'
-
-const input =
-  'w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none'
+import { Button } from '@/components/ui/button'
+import { inputClass as input } from '@/components/ui/styles'
 
 export function ChannelForm() {
-  const [state, action, pending] = useActionState(addChannel, {} as ChannelFormState)
+  const [state, action] = useActionState(addChannel, {} as ChannelFormState)
 
   return (
     <form action={action} className="space-y-3">
@@ -30,12 +29,9 @@ export function ChannelForm() {
       {state.error && <p className="text-sm text-red-600">{state.error}</p>}
       {state.ok && <p className="text-sm text-green-700">{state.ok}</p>}
 
-      <button
-        disabled={pending}
-        className="rounded-md bg-neutral-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-      >
-        {pending ? 'Checking…' : 'Add channel'}
-      </button>
+      <Button variant="primary" pendingLabel="Checking…">
+        Add channel
+      </Button>
     </form>
   )
 }

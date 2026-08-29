@@ -2,9 +2,11 @@
 
 import { useActionState } from 'react'
 import { signIn } from './actions'
+import { Button } from '@/components/ui/button'
+import { inputClass } from '@/components/ui/styles'
 
 export function LoginForm({ next }: { next: string }) {
-  const [state, action, pending] = useActionState(signIn, {} as { error?: string })
+  const [state, action] = useActionState(signIn, {} as { error?: string })
 
   return (
     <form action={action} className="mt-6 space-y-3">
@@ -15,7 +17,7 @@ export function LoginForm({ next }: { next: string }) {
         autoComplete="username"
         placeholder="Email"
         required
-        className="w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm"
+        className={inputClass}
       />
       <input
         name="password"
@@ -23,16 +25,12 @@ export function LoginForm({ next }: { next: string }) {
         autoComplete="current-password"
         placeholder="Password"
         required
-        className="w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm"
+        className={inputClass}
       />
       {state?.error && <p className="text-sm text-red-600">{state.error}</p>}
-      <button
-        type="submit"
-        disabled={pending}
-        className="w-full rounded-md bg-neutral-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
-      >
-        {pending ? 'Signing in…' : 'Sign in'}
-      </button>
+      <Button variant="primary" pendingLabel="Signing in…" className="w-full">
+        Sign in
+      </Button>
     </form>
   )
 }

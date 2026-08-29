@@ -1,133 +1,157 @@
-import { supabaseAdmin } from '@/lib/supabase/admin'
-import { supabaseServer } from '@/lib/supabase/server'
-import { botHealth } from '@/lib/bot/health'
-import { adminConnectLink } from '@/lib/messaging/connect'
-import { getBot } from '@/lib/bot/bot'
-import { CopyBox } from './jobs/[id]/copy-box'
+import { loadToday, type Decision, type Sendable } from '@/lib/dashboard/today'
+import { smsCost } from '@/lib/messaging/sms'
+import { outboxPurposeLabel } from '@/lib/ui/labels'
+import { SendCard } from '@/components/send-card'
+import { Button } from '@/components/ui/button'
+import { Badge, Card, CardHead, ErrorNote, LinkButton, PageHeader, PageShell, Row, Rows } from '@/components/ui'
+import { markSent } from './actions'
+import { hire, presentTop } from './jobs/actions'
+import { queueMessage } from './money/actions'
 
 export const dynamic = 'force-dynamic'
 
-async function recentMessages() {
-  const { data, error } = await supabaseAdmin()
-    .from('message_log')
-    .select('id, direction, telegram_id, kind, created_at')
-    .order('created_at', { ascending: false })
-    .limit(10)
+/**
+ * The inbox this dashboard never had.
+ *
+ * Two queues and nothing else: messages only he can send, and decisions that
+ * are one tap each. Bot health and the raw message log moved to Settings —
+ * they are how you debug the bot, not how you run the agency.
+ */
+export default async function TodayPage() {
+  const { sendables, decisions, running, error } = await loadToday()
+  const nothing = sendables.length === 0 && decisions.length === 0
 
-  if (error) return { rows: [], error: error.message }
-  return { rows: data ?? [], error: null as string | null }
+  return (
+    <PageShell>
+      <PageHeader title="Today" subtitle="Everything waiting on you, in the order it matters." />
+
+      {error && <ErrorNote>{error}</ErrorNote>}
+
+      {sendables.length > 0 && (
+        <Card tone="attention" className="space-y-3 p-4">
+          <CardHead
+            tone="attention"
+            title={`To send · ${sendables.length}`}
+            aside={<span className="text-amber-800">Nothing here sends itself &mdash; you tap send, from your own number.</span>}
+          />
+          {sendables.map((m, i) => (
+            <SendRow key={m.id} message={m} open={i === 0} />
+          ))}
+        </Card>
+      )}
+
+      {decisions.length > 0 && (
+        <Card>
+          <CardHead
+            title={`Waiting on you · ${decisions.length}`}
+            aside="One tap each. Nothing here is a conversation."
+            className="p-4 pb-3"
+          />
+          <Rows>
+            {decisions.map((d) => (
+              <Row key={d.key}>
+                <div className="min-w-0 grow">
+                  <p className="text-sm font-medium">{d.title}</p>
+                  <p className="mt-0.5 text-xs text-neutral-500">{d.detail}</p>
+                </div>
+                <DecisionAction decision={d} />
+              </Row>
+            ))}
+          </Rows>
+        </Card>
+      )}
+
+      {nothing && !error && (
+        <Card className="p-8 text-center">
+          <p className="text-sm font-medium">Nothing needs you right now.</p>
+          <p className="mt-1 text-sm text-neutral-500">
+            Applicants, accepted tutors and unpaid invoices all surface here on their own.
+          </p>
+        </Card>
+      )}
+
+      <p className="text-xs text-neutral-400">
+        {running.liveJobs} job{running.liveJobs === 1 ? '' : 's'} live · {running.poolSize} tutor
+        {running.poolSize === 1 ? '' : 's'} in the pool · {running.placements} placement
+        {running.placements === 1 ? '' : 's'} running
+      </p>
+    </PageShell>
+  )
 }
 
 /**
- * The operator's own Telegram link. The dashboard runs on a laptop but SMS
- * leaves from a phone, so this is what lets a message be pushed across.
+ * One queued message. The first is open with everything needed to send it;
+ * the rest stay one line each, because three QR codes stacked up is not a
+ * queue, it is a wall.
  */
-async function myPhoneLink() {
-  const supabase = await supabaseServer()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return null
+function SendRow({ message, open }: { message: Sendable; open: boolean }) {
+  const cost = smsCost(message.body)
+  const script = cost.encoding === 'UCS-2' ? 'Amharic' : 'English'
 
-  const { data: operator } = await supabaseAdmin()
-    .from('operators').select('telegram_id').eq('id', user.id).maybeSingle()
-  if (operator?.telegram_id) return { linked: true as const, link: null }
+  return (
+    <details open={open} className="rounded-md border border-amber-200 bg-white p-3">
+      <summary className="flex cursor-pointer flex-wrap items-center gap-3">
+        <span className="text-sm font-medium">{message.recipient}</span>
+        {message.phone && <span className="text-xs text-neutral-500">{message.phone}</span>}
+        <span className="text-xs text-neutral-500">{outboxPurposeLabel(message.purpose)}</span>
+        {message.lateBy !== null && <Badge tone="red">{message.lateBy} days late</Badge>}
+        <span className="text-xs text-neutral-400">
+          {cost.segments} SMS · {script}
+        </span>
+      </summary>
 
-  try {
-    const bot = await getBot()
-    return { linked: false as const, link: adminConnectLink(bot.botInfo.username, user.id) }
-  } catch {
-    return null
+      <SendCard phone={message.phone} body={message.body} recipient={message.recipient} />
+
+      <form action={markSent} className="mt-3">
+        <input type="hidden" name="outboxId" value={message.id} />
+        <Button variant="secondary" size="sm" pendingLabel="Saving…">
+          Mark sent
+        </Button>
+      </form>
+    </details>
+  )
+}
+
+/** Each decision carries exactly one button, and it is the obvious one. */
+function DecisionAction({ decision }: { decision: Decision }) {
+  switch (decision.kind) {
+    case 'hire':
+      return (
+        <form action={hire}>
+          <input type="hidden" name="id" value={decision.jobId} />
+          <input type="hidden" name="applicationId" value={decision.applicationId} />
+          <Button variant="success" size="sm" pendingLabel="Hiring…">
+            Hire {decision.firstName}
+          </Button>
+        </form>
+      )
+    case 'present':
+      return (
+        <form action={presentTop}>
+          <input type="hidden" name="id" value={decision.jobId} />
+          <input type="hidden" name="size" value={decision.size} />
+          <Button variant="primary" size="sm" pendingLabel="Asking…">
+            Ask top {decision.size}
+          </Button>
+        </form>
+      )
+    case 'publish':
+      // Which channels is a real choice, so this goes to the job rather than
+      // guessing on his behalf.
+      return (
+        <LinkButton href={`/dashboard/jobs/${decision.jobId}#publishing`} variant="primary" size="sm">
+          Publish
+        </LinkButton>
+      )
+    case 'chase':
+      return (
+        <form action={queueMessage}>
+          <input type="hidden" name="invoiceId" value={decision.invoiceId} />
+          <input type="hidden" name="chase" value={decision.late ? '1' : '0'} />
+          <Button variant="secondary" size="sm" pendingLabel="Queueing…">
+            {decision.late ? 'Queue chase' : 'Queue invoice'}
+          </Button>
+        </form>
+      )
   }
-}
-
-export default async function DashboardPage() {
-  const [health, messages, myPhone] = await Promise.all([
-    botHealth(),
-    recentMessages(),
-    myPhoneLink(),
-  ])
-
-  return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-lg font-semibold">Dashboard</h1>
-        <p className="text-sm text-neutral-500">
-          Step 1 — foundations. Jobs, candidates and money arrive with later steps.
-        </p>
-      </div>
-
-      {myPhone && (
-        <section className="rounded-md border border-neutral-200 bg-white p-4">
-          <h2 className="text-sm font-medium">Your phone</h2>
-          {myPhone.linked ? (
-            <p className="mt-1 text-sm text-green-700">
-              Linked. Any message can be pushed to your Telegram in one click.
-            </p>
-          ) : (
-            <>
-              <p className="mt-0.5 text-xs text-neutral-500">
-                Tap this once on your phone. After that, any message you need to send can be pushed
-                to your Telegram and sent from there &mdash; no retyping between devices.
-              </p>
-              <CopyBox text={myPhone.link!} label="Copy the link" />
-              <a
-                href={myPhone.link!}
-                target="_blank"
-                rel="noreferrer"
-                className="mt-2 inline-block rounded-md bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white"
-              >
-                Open in Telegram
-              </a>
-            </>
-          )}
-        </section>
-      )}
-
-      <section className="rounded-md border border-neutral-200 bg-white p-4">
-        <h2 className="text-sm font-medium">Bot</h2>
-        {health.ok ? (
-          <dl className="mt-2 space-y-1 text-sm text-neutral-600">
-            <Row label="Username" value={`@${health.username}`} />
-            <Row label="Webhook" value={health.webhookUrl} />
-            <Row label="Pending updates" value={String(health.pending)} />
-            {health.lastError && <Row label="Last error" value={health.lastError} />}
-          </dl>
-        ) : (
-          <p className="mt-2 text-sm text-red-600">{health.error}</p>
-        )}
-      </section>
-
-      <section className="rounded-md border border-neutral-200 bg-white p-4">
-        <h2 className="text-sm font-medium">Recent messages</h2>
-        {messages.error && <p className="mt-2 text-sm text-red-600">{messages.error}</p>}
-        {!messages.error && messages.rows.length === 0 && (
-          <p className="mt-2 text-sm text-neutral-500">
-            Nothing yet. Send <code>/start</code> to the bot and refresh.
-          </p>
-        )}
-        {messages.rows.length > 0 && (
-          <ul className="mt-2 divide-y divide-neutral-100 text-sm">
-            {messages.rows.map((m) => (
-              <li key={m.id} className="flex justify-between gap-4 py-1.5">
-                <span className="text-neutral-500">
-                  {m.direction === 'in' ? '←' : '→'} {m.kind ?? 'update'}
-                </span>
-                <span className="text-neutral-400">
-                  {new Date(m.created_at).toLocaleString()}
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-    </div>
-  )
-}
-
-function Row({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex justify-between gap-4">
-      <dt className="text-neutral-500">{label}</dt>
-      <dd className="truncate font-mono text-xs">{value}</dd>
-    </div>
-  )
 }

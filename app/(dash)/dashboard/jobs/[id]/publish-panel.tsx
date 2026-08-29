@@ -1,28 +1,38 @@
 import Link from 'next/link'
-import { supabaseAdmin } from '@/lib/supabase/admin'
 import { manualPackFor } from '@/lib/telegram/publish'
 import { markManualPosted, publishToChannels } from '../actions'
-import { CopyBox } from './copy-box'
+import { CopyBox } from '@/components/ui/copy-box'
+import { Button } from '@/components/ui/button'
 
-type Props = { jobId: number; approved: boolean }
+export type Publication = {
+  id: number
+  channel_id: number
+  method: string
+  posted_at: string | null
+  apply_count: number
+  error: string | null
+  channels: unknown
+}
 
-export async function PublishPanel({ jobId, approved }: Props) {
-  const db = supabaseAdmin()
+export type ActiveChannel = { id: number; title: string; kind: string }
 
-  const [{ data: channels }, { data: publications }] = await Promise.all([
-    db.from('channels').select('id, title, kind, active').eq('active', true).order('id'),
-    db
-      .from('post_publications')
-      .select('id, channel_id, method, message_id, posted_at, apply_count, error, channels(title)')
-      .eq('job_post_id', jobId),
-  ])
-
-  const publishedTo = new Set((publications ?? []).map((p) => p.channel_id))
-  const available = (channels ?? []).filter((c) => !publishedTo.has(c.id))
+export async function PublishPanel({
+  jobId,
+  approved,
+  publications,
+  channels,
+}: {
+  jobId: number
+  approved: boolean
+  publications: Publication[]
+  channels: ActiveChannel[]
+}) {
+  const publishedTo = new Set(publications.map((p) => p.channel_id))
+  const available = channels.filter((c) => !publishedTo.has(c.id))
 
   // Only manual publications that are still unposted need their pack rendering.
   const packs = new Map<number, string>()
-  for (const p of publications ?? []) {
+  for (const p of publications) {
     if (p.method === 'manual' && !p.posted_at) {
       const pack = await manualPackFor(p.id)
       if (pack) packs.set(p.id, pack)
@@ -30,13 +40,11 @@ export async function PublishPanel({ jobId, approved }: Props) {
   }
 
   return (
-    <section className="space-y-4 rounded-md border border-neutral-200 bg-white p-4">
-      <h2 className="text-sm font-medium">Publishing</h2>
-
-      {(publications?.length ?? 0) > 0 && (
+    <div className="space-y-4">
+      {publications.length > 0 && (
         <ul className="space-y-3">
-          {publications!.map((p) => {
-            const title = (p.channels as unknown as { title: string } | null)?.title ?? 'Channel'
+          {publications.map((p) => {
+            const title = (p.channels as { title: string } | null)?.title ?? 'Channel'
             const pack = packs.get(p.id)
             return (
               <li key={p.id} className="rounded-md border border-neutral-200 p-3">
@@ -58,9 +66,9 @@ export async function PublishPanel({ jobId, approved }: Props) {
                     <form action={markManualPosted}>
                       <input type="hidden" name="id" value={jobId} />
                       <input type="hidden" name="publicationId" value={p.id} />
-                      <button className="rounded-md border border-neutral-300 px-3 py-1.5 text-xs text-neutral-700">
+                      <Button variant="secondary" size="sm" pendingLabel="Saving…">
                         Mark posted
-                      </button>
+                      </Button>
                     </form>
                   )}
                 </div>
@@ -71,16 +79,14 @@ export async function PublishPanel({ jobId, approved }: Props) {
         </ul>
       )}
 
-      {!approved && (
-        <p className="text-sm text-neutral-500">Approve the post before publishing it.</p>
-      )}
+      {!approved && <p className="text-sm text-neutral-500">Approve the post before publishing it.</p>}
 
       {approved && available.length === 0 && (
         <p className="text-sm text-neutral-500">
-          {(channels?.length ?? 0) === 0 ? (
+          {channels.length === 0 ? (
             <>
-              No active channels yet —{' '}
-              <Link href="/dashboard/channels" className="underline underline-offset-2">
+              No active channels yet &mdash;{' '}
+              <Link href="/dashboard/settings" className="underline underline-offset-2">
                 add one
               </Link>
               .
@@ -107,11 +113,11 @@ export async function PublishPanel({ jobId, approved }: Props) {
               </li>
             ))}
           </ul>
-          <button className="rounded-md bg-neutral-900 px-4 py-2 text-sm font-medium text-white">
+          <Button variant="primary" pendingLabel="Publishing…">
             Publish
-          </button>
+          </Button>
         </form>
       )}
-    </section>
+    </div>
   )
 }

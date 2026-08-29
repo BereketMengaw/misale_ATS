@@ -46,7 +46,7 @@ export async function addChannel(
 
     if (error) return { error: `Could not save it: ${error.message}` }
 
-    revalidatePath('/dashboard/channels')
+    revalidatePath('/dashboard/settings')
     return {
       ok: check.ok
         ? `Added. ${check.detail}`
@@ -86,7 +86,7 @@ export async function recheckChannel(formData: FormData): Promise<void> {
     })
     .eq('id', id)
 
-  revalidatePath('/dashboard/channels')
+  revalidatePath('/dashboard/settings')
 }
 
 export async function setChannelActive(formData: FormData): Promise<void> {
@@ -95,7 +95,7 @@ export async function setChannelActive(formData: FormData): Promise<void> {
   if (!id) return
 
   await supabaseAdmin().from('channels').update({ active }).eq('id', id)
-  revalidatePath('/dashboard/channels')
+  revalidatePath('/dashboard/settings')
 }
 
 /** One click from the "recently added the bot to these" list. No id to copy. */
@@ -120,5 +120,5 @@ export async function addDiscoveredChannel(formData: FormData): Promise<void> {
       { onConflict: 'chat_id' },
     )
 
-  revalidatePath('/dashboard/channels')
+  revalidatePath('/dashboard/settings')
 }

@@ -1,8 +1,10 @@
-import { CopyBox } from '../jobs/[id]/copy-box'
+import { CopyBox } from '@/components/ui/copy-box'
 import { describeCost } from '@/lib/messaging/sms'
 import { smsQrDataUrl, smsUri } from '@/lib/messaging/qr'
 import { supabaseAdmin } from '@/lib/supabase/admin'
-import { pushToMyPhone } from './push-action'
+import { Button } from '@/components/ui/button'
+import { buttonClass } from '@/components/ui/styles'
+import { pushToMyPhone } from '@/app/(dash)/dashboard/actions'
 
 /**
  * One message waiting to be sent, with four ways to get it out:
@@ -38,7 +40,7 @@ export async function SendCard({
           {phone && (
             <a
               href={smsUri(phone, body)}
-              className="rounded-md bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white"
+              className={buttonClass('primary', 'sm')}
             >
               Open in Messages
             </a>
@@ -48,9 +50,9 @@ export async function SendCard({
               <input type="hidden" name="body" value={body} />
               <input type="hidden" name="phone" value={phone ?? ''} />
               <input type="hidden" name="recipient" value={recipient} />
-              <button className="rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-xs text-neutral-700">
+              <Button variant="secondary" size="sm" pendingLabel="Sending…">
                 Send to my Telegram
-              </button>
+              </Button>
             </form>
           )}
         </div>

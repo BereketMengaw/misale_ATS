@@ -1,5 +1,8 @@
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { formatEtb } from '@/lib/money/commission'
+import { EmptyState } from '@/components/ui'
+import { Button } from '@/components/ui/button'
+import { inputClass } from '@/components/ui/styles'
 import { attachToInvoice, dismiss } from './actions'
 
 /**
@@ -29,20 +32,21 @@ export async function Unmatched() {
   ])
 
   const rows = payments ?? []
-  if (rows.length === 0) return null
+  if (rows.length === 0) {
+    return <EmptyState>Nothing unmatched. Every payment that arrived found its invoice.</EmptyState>
+  }
 
   const invoices = open ?? []
 
   return (
-    <section className="space-y-3 rounded-md border border-red-300 bg-red-50 p-4">
-      <h2 className="text-sm font-medium text-red-900">Unmatched payments ({rows.length})</h2>
-      <p className="text-xs text-red-800">
+    <div className="space-y-3">
+      <p className="text-xs text-neutral-500">
         Money arrived, but not certainly enough to attach on its own. One tap fixes each.
       </p>
 
       <ul className="space-y-3">
         {rows.map((p) => (
-          <li key={p.id} className="rounded-md border border-red-200 bg-white p-3">
+          <li key={p.id} className="rounded-md border border-red-200 bg-red-50 p-3">
             <div className="flex flex-wrap items-baseline justify-between gap-2">
               <p className="text-sm font-medium tabular-nums">
                 {p.amount_cents ? `${formatEtb(Number(p.amount_cents))} ETB` : 'amount unknown'}
@@ -55,7 +59,7 @@ export async function Unmatched() {
 
             <p className="mt-1 line-clamp-2 text-xs text-neutral-500">{p.raw_body}</p>
             {p.receipt_url && (
-              <a href={p.receipt_url} target="_blank" rel="noreferrer" className="text-xs text-blue-700 underline">
+              <a href={p.receipt_url} target="_blank" rel="noreferrer" className="text-xs text-blue-700 underline underline-offset-2">
                 Open the bank receipt ↗
               </a>
             )}
@@ -66,7 +70,8 @@ export async function Unmatched() {
                   <input type="hidden" name="paymentId" value={p.id} />
                   <select
                     name="invoiceId"
-                    className="rounded-md border border-neutral-300 bg-white px-2 py-1 text-xs"
+                    aria-label="Invoice to attach this payment to"
+                    className={`${inputClass} w-auto py-1 text-xs`}
                     defaultValue={
                       invoices.find((i) => Number(i.gross_cents) === Number(p.amount_cents))?.id ?? invoices[0].id
                     }
@@ -80,9 +85,9 @@ export async function Unmatched() {
                       )
                     })}
                   </select>
-                  <button className="rounded-md bg-neutral-900 px-3 py-1 text-xs font-medium text-white">
+                  <Button variant="primary" size="sm" pendingLabel="Attaching…">
                     Attach and mark paid
-                  </button>
+                  </Button>
                 </form>
               ) : (
                 <span className="text-xs text-neutral-500">No unpaid invoices to attach it to.</span>
@@ -90,14 +95,14 @@ export async function Unmatched() {
 
               <form action={dismiss}>
                 <input type="hidden" name="paymentId" value={p.id} />
-                <button className="rounded-md border border-neutral-300 bg-white px-3 py-1 text-xs text-neutral-600">
+                <Button variant="secondary" size="sm" pendingLabel="Saving…">
                   Not for us
-                </button>
+                </Button>
               </form>
             </div>
           </li>
         ))}
       </ul>
-    </section>
+    </div>
   )
 }

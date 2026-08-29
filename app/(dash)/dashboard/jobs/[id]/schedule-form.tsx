@@ -2,10 +2,9 @@
 
 import { useActionState } from 'react'
 import { setSchedule, type ScheduleState } from '../actions'
+import { Button } from '@/components/ui/button'
+import { inputClass } from '@/components/ui/styles'
 import { DAYS } from '@/lib/candidates/options'
-
-const input =
-  'w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none'
 
 /** A note of what was agreed. Nothing is scheduled and nothing is sent. */
 export function ScheduleForm({
@@ -19,7 +18,7 @@ export function ScheduleForm({
   startsOn: string | null
   endsOn: string | null
 }) {
-  const [state, action, pending] = useActionState(setSchedule, {} as ScheduleState)
+  const [state, action] = useActionState(setSchedule, {} as ScheduleState)
   const chosen = new Set(current?.days ?? [])
 
   return (
@@ -41,31 +40,28 @@ export function ScheduleForm({
       <div className="grid gap-3 sm:grid-cols-4">
         <label className="block">
           <span className="text-sm font-medium text-neutral-700">Time</span>
-          <input name="time" type="time" defaultValue={current?.time ?? '17:00'} className={`mt-1 ${input}`} required />
+          <input name="time" type="time" defaultValue={current?.time ?? '17:00'} className={`mt-1 ${inputClass}`} required />
         </label>
         <label className="block">
           <span className="text-sm font-medium text-neutral-700">Hours</span>
-          <input name="hours" type="number" step="0.5" min={0.5} max={12} defaultValue={current?.hours ?? 2} className={`mt-1 ${input}`} required />
+          <input name="hours" type="number" step="0.5" min={0.5} max={12} defaultValue={current?.hours ?? 2} className={`mt-1 ${inputClass}`} required />
         </label>
         <label className="block">
           <span className="text-sm font-medium text-neutral-700">From</span>
-          <input name="startsOn" type="date" defaultValue={startsOn ?? ''} className={`mt-1 ${input}`} />
+          <input name="startsOn" type="date" defaultValue={startsOn ?? ''} className={`mt-1 ${inputClass}`} />
         </label>
         <label className="block">
           <span className="text-sm font-medium text-neutral-700">Until</span>
-          <input name="endsOn" type="date" defaultValue={endsOn ?? ''} className={`mt-1 ${input}`} />
+          <input name="endsOn" type="date" defaultValue={endsOn ?? ''} className={`mt-1 ${inputClass}`} />
         </label>
       </div>
 
       {state.error && <p className="text-sm text-red-600">{state.error}</p>}
       {state.ok && <p className="text-sm text-green-700">{state.ok}</p>}
 
-      <button
-        disabled={pending}
-        className="rounded-md bg-neutral-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-      >
-        {pending ? 'Saving…' : 'Save schedule'}
-      </button>
+      <Button variant="primary" pendingLabel="Saving…">
+        Save schedule
+      </Button>
     </form>
   )
 }

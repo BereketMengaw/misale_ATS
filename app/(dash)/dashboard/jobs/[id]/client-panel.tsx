@@ -1,30 +1,35 @@
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { introductionAm } from '@/lib/messaging/parent'
-import { SendCard } from '../../money/send-card'
 import { parentConnectLink } from '@/lib/messaging/connect'
 import { getBot } from '@/lib/bot/bot'
 import { setClient } from '../actions'
+import { SendCard } from '@/components/send-card'
+import { Badge, Field, TextInput } from '@/components/ui'
+import { Button } from '@/components/ui/button'
 
-const input =
-  'w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none'
+export type JobForIntro = {
+  id: number
+  subject: string
+  grade: string
+  area: string
+  days_per_week: number
+  status: string
+  hired_application_id: number | null
+}
+
+export type Client = {
+  id: number
+  full_name: string
+  phone: string | null
+  telegram_id: number | null
+} | null
 
 /**
  * The parent paying for the lessons. Needed before a hire can be introduced to
- * anyone, and needed again at step 10 to send an invoice.
+ * anyone, and needed again for an invoice.
  */
-export async function ClientPanel({ jobId }: { jobId: number }) {
+export async function ClientPanel({ job, client }: { job: JobForIntro; client: Client }) {
   const db = supabaseAdmin()
-
-  const { data: job } = await db
-    .from('job_posts')
-    .select('id, subject, grade, area, days_per_week, rate_amount, rate_period, status, client_id, hired_application_id, clients(id, full_name, phone, telegram_id)')
-    .eq('id', jobId)
-    .maybeSingle()
-  if (!job) return null
-
-  const client = job.clients as unknown as {
-    id: number; full_name: string; phone: string | null; telegram_id: number | null
-  } | null
 
   // One tap by the parent, and every message after it is automatic and free.
   let connectLink: string | null = null
@@ -62,23 +67,13 @@ export async function ClientPanel({ jobId }: { jobId: number }) {
   }
 
   return (
-    <section className="space-y-3 rounded-md border border-neutral-200 bg-white p-4">
-      <h2 className="text-sm font-medium">Parent</h2>
-
+    <div className="space-y-3">
       {client ? (
         <>
-          <p className="text-sm text-neutral-600">
-            {client.full_name}
-            {client.phone && ` · ${client.phone}`}
-            {client.telegram_id ? (
-              <span className="ml-2 rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-800">
-                on Telegram
-              </span>
-            ) : (
-              <span className="ml-2 rounded-full bg-neutral-100 px-2 py-0.5 text-xs text-neutral-600">
-                SMS only
-              </span>
-            )}
+          <p className="flex flex-wrap items-center gap-2 text-sm text-neutral-600">
+            <span className="font-medium text-neutral-900">{client.full_name}</span>
+            {client.phone && <span>{client.phone}</span>}
+            {client.telegram_id ? <Badge tone="green">On Telegram</Badge> : <Badge>SMS only</Badge>}
           </p>
 
           {connectLink && (
@@ -90,24 +85,29 @@ export async function ClientPanel({ jobId }: { jobId: number }) {
               </p>
               <SendCard
                 phone={client.phone}
+                recipient={client.full_name}
                 body={`ሚሳሌ፦ መልእክቶችን በቴሌግራም ለመቀበል ይህን ይጫኑ፦ ${connectLink}`}
               />
             </div>
           )}
         </>
       ) : (
-        <form action={setClient} className="space-y-2">
+        <form action={setClient} className="space-y-3">
           <p className="text-xs text-neutral-500">
-            Add the parent before hiring — the introduction has to go to somebody.
+            Add the parent before hiring &mdash; the introduction has to go to somebody.
           </p>
-          <input type="hidden" name="id" value={jobId} />
-          <div className="grid gap-2 sm:grid-cols-2">
-            <input name="clientName" className={input} placeholder="Parent's name" required />
-            <input name="clientPhone" className={input} placeholder="09…" />
+          <input type="hidden" name="id" value={job.id} />
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label="Parent's name">
+              <TextInput name="clientName" placeholder="Full name" required />
+            </Field>
+            <Field label="Phone">
+              <TextInput name="clientPhone" placeholder="09…" inputMode="tel" />
+            </Field>
           </div>
-          <button className="rounded-md border border-neutral-300 px-3 py-1.5 text-xs text-neutral-700">
+          <Button variant="secondary" size="sm" pendingLabel="Saving…">
             Save parent
-          </button>
+          </Button>
         </form>
       )}
 
@@ -119,9 +119,9 @@ export async function ClientPanel({ jobId }: { jobId: number }) {
           <p className="mt-0.5 text-xs text-green-800">
             {tutorName} has already been told. This is the half only you can send.
           </p>
-          <SendCard phone={client?.phone ?? null} body={intro} />
+          <SendCard phone={client?.phone ?? null} body={intro} recipient={client?.full_name ?? 'the parent'} />
         </div>
       )}
-    </section>
+    </div>
   )
 }

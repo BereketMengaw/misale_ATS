@@ -1,173 +1,196 @@
+import Link from 'next/link'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { formatEtb } from '@/lib/money/commission'
 import { isOverdue, periodKey } from '@/lib/money/invoice'
+import { total, type Payout } from '@/lib/money/payout'
+import { invoiceLabel } from '@/lib/ui/labels'
+import { Badge, Card, EmptyState, PageHeader, PageShell, Stat, Table, Td, Th, Thead, Tr } from '@/components/ui'
+import { Button } from '@/components/ui/button'
 import { GenerateForm } from './generate-form'
-import { markPaid, markSent, queueMessage } from './actions'
-import { SendCard } from './send-card'
+import { markPaid, queueMessage } from './actions'
 import { Unmatched } from './unmatched'
 import { Payouts } from './payouts'
 
 export const dynamic = 'force-dynamic'
 
-export default async function MoneyPage() {
+/**
+ * Invoices and payouts. The send queue used to live here, below the stats and
+ * above the invoice table — the most time-critical thing in the app, on a page
+ * called Money. It is on Today now.
+ */
+export default async function MoneyPage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
+  const { tab = 'invoices' } = await searchParams
   const db = supabaseAdmin()
   const now = new Date()
 
-  const [{ data: invoices }, { data: queue }] = await Promise.all([
+  const [{ data: invoices }, { data: payoutRows }, { count: unmatched }] = await Promise.all([
     db
       .from('invoices')
       .select('*, clients(full_name, phone), placements(candidates(full_name))')
       .order('issued_on', { ascending: false })
       .limit(100),
-    db.from('outbox').select('*').eq('status', 'pending').order('created_at', { ascending: true }),
+    db.from('payouts').select('*, candidates(full_name, phone), invoices(reference, period)').order('status').order('due_on'),
+    db.from('payments').select('id', { count: 'exact', head: true }).is('invoice_id', null).neq('matched_by', 'operator'),
   ])
 
   const rows = invoices ?? []
-  const pending = queue ?? []
+  const payouts = payoutRows ?? []
 
   const unpaid = rows.filter((i) => i.status !== 'paid' && i.status !== 'cancelled')
   const owed = unpaid.reduce((t, i) => t + Number(i.gross_cents), 0)
+  const late = unpaid.filter((i) => isOverdue(new Date(`${i.due_on}T00:00:00Z`), null, now)).length
   const yours = rows
     .filter((i) => i.status === 'paid')
     .reduce((t, i) => t + Number(i.commission_cents), 0)
 
+  const due = payouts.filter((p) => p.status === 'due')
+  const owedToTutors = total(
+    due.map(
+      (p): Payout => ({
+        invoiceId: p.invoice_id,
+        grossCents: Number(p.gross_cents),
+        commissionCents: Number(p.commission_cents),
+        netCents: Number(p.net_cents),
+      }),
+    ),
+  ).netCents
+
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-lg font-semibold">Money</h1>
-        <p className="text-sm text-neutral-500">Invoices, and the messages waiting for you to send.</p>
+    <PageShell>
+      <PageHeader
+        title="Money"
+        subtitle="Invoices and payouts. Messages to send live on Today."
+        action={<GenerateForm defaultPeriod={periodKey(now.getUTCFullYear(), now.getUTCMonth() + 1)} />}
+      />
+
+      <div className="grid gap-3 sm:grid-cols-3">
+        <Stat
+          label="Owed to you"
+          value={`${formatEtb(owed)} ETB`}
+          sub={`${unpaid.length} unpaid${late ? ` · ${late} late` : ''}`}
+        />
+        <Stat label="Your commission, paid" value={`${formatEtb(yours)} ETB`} tone="good" />
+        <Stat
+          label="Owed to tutors"
+          value={`${formatEtb(owedToTutors)} ETB`}
+          sub={`${due.length} payout${due.length === 1 ? '' : 's'} due`}
+          tone={due.length ? 'warn' : undefined}
+        />
       </div>
 
-      <div className="grid gap-1px grid-cols-2 gap-3 sm:grid-cols-3">
-        <Stat label="Owed" value={`${formatEtb(owed)} ETB`} sub={`${unpaid.length} unpaid`} />
-        <Stat label="Your commission, paid" value={`${formatEtb(yours)} ETB`} tone="text-green-800" />
-        <Stat label="Waiting to send" value={String(pending.length)} tone={pending.length ? 'text-amber-700' : undefined} />
-      </div>
+      <Card>
+        <div className="flex flex-wrap items-center gap-1 border-b border-neutral-200 px-4 pt-2">
+          <Tab href="/dashboard/money" active={tab === 'invoices'}>
+            Invoices <Count>{rows.length}</Count>
+          </Tab>
+          <Tab href="/dashboard/money?tab=payouts" active={tab === 'payouts'}>
+            Payouts <Count>{payouts.length}</Count>
+          </Tab>
+          <Tab href="/dashboard/money?tab=unmatched" active={tab === 'unmatched'}>
+            Unmatched payments{' '}
+            {unmatched ? (
+              <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[11px] font-medium leading-none text-amber-800">
+                {unmatched}
+              </span>
+            ) : (
+              <Count>0</Count>
+            )}
+          </Tab>
+        </div>
 
-      <Unmatched />
-
-      {/* The send queue: written by the system, sent by you. */}
-      {pending.length > 0 && (
-        <section className="space-y-3 rounded-md border border-amber-300 bg-amber-50 p-4">
-          <h2 className="text-sm font-medium text-amber-900">To send ({pending.length})</h2>
-          <p className="text-xs text-amber-800">
-            Nothing here sends itself. On your phone, &ldquo;Open in Messages&rdquo; fills in the
-            number and the text &mdash; you still tap send, from your own number.
-          </p>
-          <ul className="space-y-3">
-            {pending.map((m) => (
-              <li key={m.id} className="rounded-md border border-amber-200 bg-white p-3">
-                <div className="flex flex-wrap items-baseline justify-between gap-2">
-                  <p className="text-sm font-medium">
-                    {m.recipient}
-                    {m.phone && <span className="ml-2 font-normal text-neutral-500">{m.phone}</span>}
-                  </p>
-                  <span className="text-xs text-neutral-500">{m.purpose}</span>
-                </div>
-                <SendCard phone={m.phone} body={m.body} />
-                <form action={markSent} className="mt-2">
-                  <input type="hidden" name="outboxId" value={m.id} />
-                  <button className="rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-xs text-neutral-700">
-                    Mark sent
-                  </button>
-                </form>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-
-      <section className="space-y-3 rounded-md border border-neutral-200 bg-white p-4">
-        <h2 className="text-sm font-medium">New month</h2>
-        <GenerateForm defaultPeriod={periodKey(now.getUTCFullYear(), now.getUTCMonth() + 1)} />
-        <p className="text-xs text-neutral-400">
-          One invoice per active placement. Running it twice changes nothing.
-        </p>
-      </section>
-
-      <Payouts />
-
-      <section className="rounded-md border border-neutral-200 bg-white p-4">
-        <h2 className="mb-3 text-sm font-medium">Invoices</h2>
-
-        {rows.length === 0 ? (
-          <p className="text-sm text-neutral-500">None yet.</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-neutral-200 text-left text-xs uppercase tracking-wide text-neutral-400">
-                  <th className="py-2 pr-3 font-medium">Reference</th>
-                  <th className="py-2 pr-3 font-medium">Parent</th>
-                  <th className="py-2 pr-3 font-medium">Month</th>
-                  <th className="py-2 pr-3 text-right font-medium">Amount</th>
-                  <th className="py-2 pr-3 font-medium">Due</th>
-                  <th className="py-2 font-medium">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((i) => {
-                  const client = i.clients as unknown as { full_name: string } | null
-                  const late = isOverdue(new Date(`${i.due_on}T00:00:00Z`), i.paid_at ? new Date(i.paid_at) : null, now)
-                  return (
-                    <tr key={i.id} className="border-b border-neutral-100 last:border-0">
-                      <td className="py-2 pr-3 font-mono text-xs">{i.reference}</td>
-                      <td className="py-2 pr-3">{client?.full_name ?? '—'}</td>
-                      <td className="py-2 pr-3 text-neutral-500">{i.period}</td>
-                      <td className="py-2 pr-3 text-right tabular-nums">{formatEtb(Number(i.gross_cents))}</td>
-                      <td className={`py-2 pr-3 text-xs ${late ? 'text-red-700' : 'text-neutral-500'}`}>
-                        {i.due_on}{late && ' · late'}
-                      </td>
-                      <td className="py-2">
-                        <div className="flex flex-wrap items-center gap-1.5">
-                          <span
-                            className={`rounded-full px-2 py-0.5 text-xs ${
-                              i.status === 'paid'
-                                ? 'bg-green-100 text-green-800'
-                                : late
-                                  ? 'bg-red-100 text-red-800'
-                                  : 'bg-neutral-100 text-neutral-600'
-                            }`}
-                          >
-                            {i.status}
-                          </span>
-                          {i.status !== 'paid' && (
-                            <>
+        <div className="p-4">
+          {tab === 'payouts' && <Payouts rows={payouts} />}
+          {tab === 'unmatched' && <Unmatched />}
+          {tab === 'invoices' &&
+            (rows.length === 0 ? (
+              <EmptyState>
+                No invoices yet. They are generated once a month, one per active placement.
+              </EmptyState>
+            ) : (
+              <Table>
+                <Thead>
+                  <Th>Reference</Th>
+                  <Th>Parent</Th>
+                  <Th>Tutor</Th>
+                  <Th>Month</Th>
+                  <Th align="right">Amount</Th>
+                  <Th>Due</Th>
+                  <Th>Status</Th>
+                  <Th align="right">Do</Th>
+                </Thead>
+                <tbody>
+                  {rows.map((i) => {
+                    const client = i.clients as unknown as { full_name: string } | null
+                    const placement = i.placements as unknown as { candidates: { full_name: string | null } | null } | null
+                    const overdue = isOverdue(
+                      new Date(`${i.due_on}T00:00:00Z`),
+                      i.paid_at ? new Date(i.paid_at) : null,
+                      now,
+                    )
+                    const status = invoiceLabel(i.status, overdue)
+                    return (
+                      <Tr key={i.id}>
+                        <Td className="font-mono text-xs">{i.reference}</Td>
+                        <Td>{client?.full_name ?? '—'}</Td>
+                        <Td className="text-neutral-500">{placement?.candidates?.full_name ?? '—'}</Td>
+                        <Td className="text-neutral-500">{i.period}</Td>
+                        <Td align="right">{formatEtb(Number(i.gross_cents))}</Td>
+                        <Td className={`text-xs ${overdue ? 'text-red-700' : 'text-neutral-500'}`}>
+                          {i.due_on}
+                          {overdue && ' · late'}
+                        </Td>
+                        <Td>
+                          <Badge tone={status.tone}>{status.label}</Badge>
+                        </Td>
+                        <Td align="right">
+                          {i.status === 'paid' || i.status === 'cancelled' ? (
+                            <span className="text-xs text-neutral-400">—</span>
+                          ) : (
+                            <div className="flex flex-wrap items-center justify-end gap-1.5">
                               <form action={queueMessage}>
                                 <input type="hidden" name="invoiceId" value={i.id} />
-                                <input type="hidden" name="chase" value={late ? '1' : '0'} />
-                                <button className="rounded border border-neutral-300 px-2 py-0.5 text-xs text-neutral-600">
-                                  {late ? 'Queue chase' : i.status === 'draft' ? 'Queue invoice' : 'Queue again'}
-                                </button>
+                                <input type="hidden" name="chase" value={overdue ? '1' : '0'} />
+                                <Button variant="secondary" size="sm" pendingLabel="Queueing…">
+                                  {overdue ? 'Queue chase' : i.status === 'draft' ? 'Queue invoice' : 'Queue again'}
+                                </Button>
                               </form>
                               <form action={markPaid}>
                                 <input type="hidden" name="invoiceId" value={i.id} />
-                                <button className="rounded border border-neutral-300 px-2 py-0.5 text-xs text-neutral-600">
+                                <Button variant="secondary" size="sm" pendingLabel="Saving…">
                                   Mark paid
-                                </button>
+                                </Button>
                               </form>
-                            </>
+                            </div>
                           )}
-                        </div>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
-    </div>
+                        </Td>
+                      </Tr>
+                    )
+                  })}
+                </tbody>
+              </Table>
+            ))}
+        </div>
+      </Card>
+    </PageShell>
   )
 }
 
-function Stat({ label, value, sub, tone }: { label: string; value: string; sub?: string; tone?: string }) {
+function Tab({ href, active, children }: { href: string; active: boolean; children: React.ReactNode }) {
   return (
-    <div className="rounded-md border border-neutral-200 bg-white p-4">
-      <p className="text-xs uppercase tracking-wide text-neutral-400">{label}</p>
-      <p className={`mt-1 text-xl font-semibold tabular-nums ${tone ?? ''}`}>{value}</p>
-      {sub && <p className="text-xs text-neutral-400">{sub}</p>}
-    </div>
+    <Link
+      href={href}
+      aria-current={active ? 'page' : undefined}
+      className={`-mb-px flex items-center gap-1.5 border-b-2 px-3 py-2.5 text-sm transition-colors ${
+        active
+          ? 'border-neutral-900 font-medium text-neutral-900'
+          : 'border-transparent text-neutral-500 hover:text-neutral-900'
+      }`}
+    >
+      {children}
+    </Link>
   )
+}
+
+function Count({ children }: { children: React.ReactNode }) {
+  return <span className="text-xs font-normal text-neutral-400">{children}</span>
 }

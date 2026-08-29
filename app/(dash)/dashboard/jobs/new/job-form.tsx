@@ -2,6 +2,8 @@
 
 import { useActionState } from 'react'
 import { createJob, type FormState } from '../actions'
+import { Button } from '@/components/ui/button'
+import { inputClass as input } from '@/components/ui/styles'
 
 function Field({
   label,
@@ -24,11 +26,8 @@ function Field({
   )
 }
 
-const input =
-  'w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none'
-
 export function JobForm() {
-  const [state, action, pending] = useActionState(createJob, {} as FormState)
+  const [state, action] = useActionState(createJob, {} as FormState)
   const e = state.errors ?? {}
 
   return (
@@ -90,13 +89,9 @@ export function JobForm() {
 
       {e.form && <p className="text-sm text-red-600">{e.form}</p>}
 
-      <button
-        type="submit"
-        disabled={pending}
-        className="rounded-md bg-neutral-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-      >
-        {pending ? 'Writing…' : 'Write the post'}
-      </button>
+      <Button variant="primary" pendingLabel="Writing…">
+        Write the post
+      </Button>
     </form>
   )
 }

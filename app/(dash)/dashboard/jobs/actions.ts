@@ -130,6 +130,7 @@ export async function setApproval(formData: FormData): Promise<void> {
 
   revalidatePath(`/dashboard/jobs/${id}`)
   revalidatePath('/dashboard/jobs')
+  revalidatePath('/dashboard')
 }
 
 /** Publish an approved job to the selected channels. */
@@ -147,6 +148,7 @@ export async function publishToChannels(formData: FormData): Promise<void> {
 
   revalidatePath(`/dashboard/jobs/${id}`)
   revalidatePath('/dashboard/jobs')
+  revalidatePath('/dashboard')
 }
 
 /**
@@ -168,6 +170,7 @@ export async function markManualPosted(formData: FormData): Promise<void> {
 
   revalidatePath(`/dashboard/jobs/${jobId}`)
   revalidatePath('/dashboard/jobs')
+  revalidatePath('/dashboard')
 }
 
 /** Ask the top N to accept the commission. The 3, then the 5. */
@@ -180,6 +183,7 @@ export async function presentTop(formData: FormData): Promise<void> {
   await presentBatch(jobId, size, await currentOperatorId())
 
   revalidatePath(`/dashboard/jobs/${jobId}`)
+  revalidatePath('/dashboard')
 }
 
 /**
@@ -196,6 +200,7 @@ export async function hire(formData: FormData): Promise<void> {
 
   revalidatePath(`/dashboard/jobs/${jobId}`)
   revalidatePath('/dashboard/jobs')
+  revalidatePath('/dashboard')
 }
 
 /** Attach the parent paying for the lessons. Introductions need someone to introduce to. */
@@ -226,4 +231,37 @@ export async function messageTalentPool(formData: FormData): Promise<void> {
   await sendTalentDms(jobId)
 
   revalidatePath(`/dashboard/jobs/${jobId}`)
+}
+
+export type ScheduleState = { error?: string; ok?: string }
+
+/**
+ * Records what was agreed for the placement. Nothing is scheduled and nothing
+ * is sent. It lives with the job's actions because the placement is now shown
+ * inside its job rather than on a page of its own.
+ */
+export async function setSchedule(_prev: ScheduleState, formData: FormData): Promise<ScheduleState> {
+  const placementId = Number(formData.get('id'))
+  const { DAY_INDEX } = await import('@/lib/placements/schedule')
+  const days = formData.getAll('days').map(String).filter((d) => d in DAY_INDEX)
+  const time = String(formData.get('time') ?? '').trim()
+  const hours = Number(formData.get('hours'))
+  const startsOn = String(formData.get('startsOn') ?? '').trim() || null
+  const endsOn = String(formData.get('endsOn') ?? '').trim() || null
+
+  if (!placementId) return { error: 'Missing placement.' }
+  if (days.length === 0) return { error: 'Pick at least one day.' }
+
+  const { setPlacementSchedule } = await import('@/lib/placements/service')
+  const result = await setPlacementSchedule(placementId, { days, time, hours }, startsOn, endsOn)
+  if (!result.ok) return { error: result.error }
+
+  const { data: placement } = await supabaseAdmin()
+    .from('placements')
+    .select('job_post_id')
+    .eq('id', placementId)
+    .maybeSingle()
+
+  if (placement) revalidatePath(`/dashboard/jobs/${placement.job_post_id}`)
+  return { ok: 'Saved.' }
 }
