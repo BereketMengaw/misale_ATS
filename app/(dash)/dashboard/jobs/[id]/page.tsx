@@ -89,8 +89,11 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
             ? 'parent'
             : 'placement'
 
+  // The step he is ON always wins. Ranking `done` first meant the Applicants
+  // phase was marked finished — and so collapsed — the moment somebody
+  // applied, hiding the applicant behind a summary line that counted them.
   const state = (key: string, done: boolean): PhaseState =>
-    done ? 'done' : current === key ? 'current' : 'todo'
+    current === key ? 'current' : done ? 'done' : 'todo'
 
   const status = jobLabel(job.status, job.approved_at)
 
