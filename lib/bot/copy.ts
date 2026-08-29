@@ -22,6 +22,54 @@ export const copy = {
 
   notReadyYet: "This part isn't ready yet. Check back soon.",
 
+  // ---- registration wizard ----
+  reg: {
+    consent: [
+      'Before we start.',
+      '',
+      'We keep your profile and CV so we can match you to tutoring jobs, and we may message you here when a new one suits you. You can ask us to delete it at any time.',
+    ].join('\n'),
+    consentDeclined: 'No problem. Nothing has been saved. The open jobs are still here whenever you want them.',
+
+    name: (name: string) => `Is your name **${name}**?`,
+    nameTypeIt: 'Send me your full name as one message.',
+    nameTooShort: 'That looks too short. Send your full name as one message.',
+
+    phone: 'Tap the button below to share your phone number. Parents never see it until you are hired.',
+    phoneNotShared: 'Use the "Share my number" button below — typing it does not work here.',
+    phoneWrongPerson: 'That is someone else\'s contact. Tap the button to share your own.',
+
+    gender: 'Some families ask for a female or male tutor. Which are you?',
+    area: 'Which part of Addis are you in? Pick the closest.',
+    education: 'What is your highest level of education?',
+
+    subjects: 'Which subjects can you teach? Tap all that apply, then Done.',
+    subjectsNone: 'Pick at least one subject.',
+    grades: 'Which grades? Tap all that apply, then Done.',
+    gradesNone: 'Pick at least one.',
+
+    days: 'Which days can you teach? Tap all that apply, then Done.',
+    daysNone: 'Pick at least one day.',
+    times: 'And roughly what times on those days?',
+    timesNone: 'Pick at least one.',
+
+    experience: 'How long have you been tutoring?',
+    rate: 'What do you expect to be paid?',
+
+    cv: 'Last step — send your CV as a file or a photo. It helps a lot, but you can skip it.',
+    cvTooBig: 'That file is over 10 MB. Send a smaller one, or skip this step.',
+    cvBadType: 'Send a PDF, a Word document, or a photo of your CV.',
+    cvSaved: 'Got your CV.',
+
+    done: (applied: string | null) =>
+      applied
+        ? `You're registered, and your application for ${applied} is in.\n\nWe will message you here if you are shortlisted. You do not need to do anything else.`
+        : "You're registered.\n\nWe will message you here when a job suits you. You do not need to do anything else.",
+
+    alreadyApplied: (job: string) => `You have already applied for ${job}. We will message you here if you are shortlisted.`,
+    resume: 'Picking up where you left off.',
+  },
+
   buttons: {
     openJobs: 'Open jobs',
     register: 'Register as a tutor',
@@ -29,5 +77,13 @@ export const copy = {
     faq: 'FAQ',
     applyNow: 'Apply for this job',
     backToMenu: 'Main menu',
+    agree: 'I agree — continue',
+    decline: 'No thanks',
+    nameYes: "Yes, that's me",
+    nameNo: 'Use a different name',
+    sharePhone: 'Share my number',
+    done: 'Done',
+    skip: 'Skip this',
+    other: 'Somewhere else',
   },
 } as const
