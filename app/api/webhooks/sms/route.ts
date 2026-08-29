@@ -52,7 +52,21 @@ export async function POST(req: Request) {
   }
 
   const { body, sender } = extract(input)
-  if (!body) return NextResponse.json({ ok: false, error: 'no message body' }, { status: 400 })
+  if (!body) {
+    // The gateway app's exact field names are worth confirming rather than
+    // guessing. Report the keys we were sent — never the values, which could
+    // be somebody's private message — so the shape can be adapted quickly.
+    return NextResponse.json(
+      {
+        ok: false,
+        error: 'no message body found',
+        receivedKeys: Object.keys(input ?? {}),
+        nestedKeys: input?.payload ? Object.keys(input.payload) : undefined,
+        expected: 'one of: body, message, text, payload.message',
+      },
+      { status: 400 },
+    )
+  }
 
   try {
     const result = await ingestSms(body, sender)
