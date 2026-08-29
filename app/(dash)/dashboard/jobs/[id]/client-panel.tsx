@@ -1,5 +1,6 @@
 import { supabaseAdmin } from '@/lib/supabase/admin'
-import { parentIntroduction } from '@/lib/hiring/messages'
+import { introductionAm } from '@/lib/messaging/parent'
+import { describeCost } from '@/lib/messaging/sms'
 import { setClient } from '../actions'
 import { CopyBox } from './copy-box'
 
@@ -37,15 +38,11 @@ export async function ClientPanel({ jobId }: { jobId: number }) {
 
     if (tutor) {
       tutorName = tutor.full_name
-      intro = parentIntroduction(
-        'Misale',
-        tutor.full_name ?? 'your tutor',
+      intro = introductionAm(
+        tutor.full_name ?? 'አስተማሪዎ',
         tutor.phone,
-        {
-          subject: job.subject, grade: job.grade, area: job.area,
-          daysPerWeek: job.days_per_week, rateAmount: Number(job.rate_amount), ratePeriod: job.rate_period,
-        },
-        release,
+        { subject: job.subject, grade: job.grade, area: job.area, daysPerWeek: job.days_per_week },
+        release === 'on_hire',
       )
     }
   }
@@ -84,6 +81,15 @@ export async function ClientPanel({ jobId }: { jobId: number }) {
             {tutorName} has already been told. This is the half only you can send.
           </p>
           <CopyBox text={intro} />
+          <p className="mt-1 text-xs text-green-700">{describeCost(intro)}</p>
+          {client?.phone && (
+            <a
+              href={`sms:${client.phone}?body=${encodeURIComponent(intro)}`}
+              className="mt-2 inline-block rounded-md bg-green-700 px-4 py-1.5 text-xs font-medium text-white"
+            >
+              Send by SMS
+            </a>
+          )}
         </div>
       )}
     </section>

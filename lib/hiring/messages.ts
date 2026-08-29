@@ -118,26 +118,6 @@ export function notChosen(job: JobSummary): string {
   ].join('\n')
 }
 
-/**
- * The introduction the operator sends to the parent. SMS-shaped: one segment
- * is 160 characters, so this stays short and says only what is needed.
- */
-export function parentIntroduction(
-  agencyName: string,
-  tutorName: string,
-  tutorPhone: string | null,
-  job: JobSummary,
-  release: 'on_hire' | 'after_first_payment' | 'never',
-): string {
-  const showPhone = release === 'on_hire' && tutorPhone
-  return [
-    `${agencyName}: Your tutor for ${job.subject} (${job.grade}) is ${tutorName}`,
-    showPhone ? `, ${tutorPhone}` : '',
-    `. ${job.daysPerWeek} days a week in ${job.area}.`,
-    showPhone ? '' : ' We will send their number shortly.',
-  ].join('')
-}
-
 /** What a channel post becomes once the job is filled. */
 export function filledPost(originalBody: string): string {
   return `✅ FILLED\n\n${strikeHeader(originalBody)}`

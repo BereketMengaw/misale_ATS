@@ -59,8 +59,12 @@ disappearing.
 
 ## Copy constraints
 
-SMS fits **160 characters** per segment, so bodies stay short and say only what is needed. Anything
-longer belongs on Telegram, where length is free.
+Messages to **tutors** are English and go over Telegram, where length is free.
+
+Messages to **families** are Amharic and go by SMS, where length is money: one Amharic character
+forces UCS-2 encoding, and a segment drops from 160 characters to **70**. The same text therefore
+costs about 3× what it would in English. Parent messages are kept to two segments, and the
+dashboard prints the segment count beside each one before it is sent.
 
 Sample, after a hire:
 

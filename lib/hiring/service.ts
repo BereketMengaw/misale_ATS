@@ -5,8 +5,9 @@ import { logMessage } from '@/lib/bot/log'
 import { applicantsFor } from '@/lib/scoring/board'
 import {
   commissionAccepted, commissionDeclined, commissionOffer, filledPost,
-  hired, notChosen, notChosenAfterShortlist, parentIntroduction, type JobSummary,
+  hired, notChosen, notChosenAfterShortlist, type JobSummary,
 } from './messages'
+import { introductionAm } from '@/lib/messaging/parent'
 
 export type Release = 'on_hire' | 'after_first_payment' | 'never'
 
@@ -269,13 +270,19 @@ export async function hireCandidate(applicationId: number, operatorId: string | 
   }
 }
 
+/** Amharic: this is the one message in the system a family actually reads. */
 function buildParentIntro(
   tutorName: string | null,
   tutorPhone: string | null,
   job: JobSummary,
   release: Release,
 ): string {
-  return parentIntroduction('Misale', tutorName ?? 'your tutor', tutorPhone, job, release)
+  return introductionAm(
+    tutorName ?? 'አስተማሪዎ',
+    tutorPhone,
+    { subject: job.subject, grade: job.grade, area: job.area, daysPerWeek: job.daysPerWeek },
+    release === 'on_hire',
+  )
 }
 
 /**

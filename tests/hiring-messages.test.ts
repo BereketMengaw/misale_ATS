@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   commissionAccepted, commissionDeclined, commissionOffer, filledPost, hired,
-  jobLine, notChosen, notChosenAfterShortlist, parentIntroduction, type JobSummary,
+  jobLine, notChosen, notChosenAfterShortlist, type JobSummary,
 } from '@/lib/hiring/messages'
 
 const job: JobSummary = {
@@ -69,19 +69,6 @@ describe('hiring messages', () => {
 
   it('quotes the tutor the same figure at hire as at the offer', () => {
     expect(hired(job, 'Selam', 20, 'never', null)).toContain('3,600 ETB per month')
-  })
-
-  it('keeps the parent SMS inside one segment', () => {
-    const sms = parentIntroduction('Misale', 'Abebe Kebede', '+251911234567', job, 'on_hire')
-    expect(sms.length).toBeLessThanOrEqual(160)
-    expect(sms).toContain('Abebe Kebede')
-    expect(sms).toContain('+251911234567')
-  })
-
-  it('withholds the tutor number from the parent until release', () => {
-    const sms = parentIntroduction('Misale', 'Abebe Kebede', '+251911234567', job, 'after_first_payment')
-    expect(sms).not.toContain('+251911234567')
-    expect(sms.length).toBeLessThanOrEqual(160)
   })
 
   it('marks a filled post without destroying it', () => {

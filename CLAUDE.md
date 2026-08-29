@@ -23,10 +23,16 @@ calls inside them.
 - TypeScript, Next.js App Router, Supabase, grammY.
 - Bot conversation state lives in Postgres (`bot_sessions`), never in memory — the webhook is
   stateless and may run on any instance.
-- User-facing copy is **English only**. Job posts, bot messages, buttons and SMS. Do not add a
-  second language, a language picker, or a `lang` column; `tests/copy.test.ts` fails the build if
-  Ethiopic script appears in bot copy.
-- SMS bodies stay under 160 characters, which is one segment.
+- **Language depends on who is reading.** Two audiences, two rules:
+  - **Tutors and the bot — English only.** Job posts, every bot message, every button. No language
+    picker, no `lang` column; `tests/copy.test.ts` fails the build if Ethiopic script appears in
+    `lib/bot/copy.ts`.
+  - **Families — Amharic only.** Every message the operator sends a parent lives in
+    `lib/messaging/parent.ts`, written natively rather than translated out of English.
+    `tests/parent-messages.test.ts` fails the build if English creeps in.
+- An Amharic SMS fits **70 characters** per segment against English's 160, so a parent message
+  costs roughly 3× to send. Keep them to two segments; `lib/messaging/sms.ts` counts it, and the
+  dashboard shows the count beside every message before it is sent.
 
 ## Build order
 
