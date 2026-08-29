@@ -1,0 +1,36 @@
+# Decisions
+
+## Settled
+
+| Decision | Outcome | Why |
+|---|---|---|
+| Bot vs personal account | **Bot** | A userbot cannot send buttons, and would deliver every message into his own Telegram — the thing he is avoiding |
+| Human in the loop | **None** | He runs it alone, hires nobody, and does not want conversations |
+| Commission negotiation | **Accept / decline only** | A counter-offer queue is a conversation |
+| Contact release | **Setting**, default `after_first_payment` | Protects the month of highest exposure to being cut out |
+| AI model | **Template first**, then Gemini Flash free tier, all behind `provider.ts` | Costs nothing; reads CV photos and PDFs natively, so no OCR pipeline |
+| Ranking | **Deterministic arithmetic** | Explainable, testable, free, and defensible to a candidate |
+| SMS sending | **Written by system, sent by operator** | Reads as a person; one-way, so not a conversation |
+| Gateway trigger | **User-initiated bulk send** | No unattended server; his own Android phone is enough |
+| Gateway reliability | **Catch-up on open**, not background listening | Android kills background apps; SMS persist on the phone, so nothing is lost |
+| Business separation | **Second SIM + sender allowlist** | Privacy, clean expense line, consistent business number |
+| Build shape | **12 steps, 4 stopping points** | Progress must be verifiable, and stopping early must still be useful |
+
+## Open — answer at the step that needs it
+
+| Question | Needed by |
+|---|---|
+| Commission model: share of tutor pay, flat placement fee, or both? | Step 7 |
+| Billing rhythm: monthly, every 8 lessons, or per lesson? | Step 10 |
+| Parents on the bot too, or SMS-only? (bot is better — it keeps him out entirely) | Step 10 |
+| The ten questions tutors always ask, for the FAQ menu | Step 4 |
+| Which Telegram channels can the bot be made admin of? | Step 3 |
+| A few real Telebirr / CBE SMS bodies, for the parser fixtures | Step 11 |
+
+## Later, not in the 12 steps
+
+**Facebook / Instagram ads.** Same pattern as Telegram channels: a job post becomes an ad, the ad's
+link is the same tracked deep link, and `post_publications` already records where each applicant
+came from. Adds one publishing channel plus a **cost-per-hire** view — spend per job against
+applicants, shortlists and hires by source. Slots in after step 12 without changing anything built
+before it.
