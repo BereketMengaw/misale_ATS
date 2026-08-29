@@ -6,6 +6,7 @@ import { GenerateForm } from './generate-form'
 import { markPaid, markSent, queueMessage } from './actions'
 import { CopyBox } from '../jobs/[id]/copy-box'
 import { Unmatched } from './unmatched'
+import { Payouts } from './payouts'
 
 export const dynamic = 'force-dynamic'
 
@@ -90,6 +91,8 @@ export default async function MoneyPage() {
           One invoice per active placement. Running it twice changes nothing.
         </p>
       </section>
+
+      <Payouts />
 
       <section className="rounded-md border border-neutral-200 bg-white p-4">
         <h2 className="mb-3 text-sm font-medium">Invoices</h2>

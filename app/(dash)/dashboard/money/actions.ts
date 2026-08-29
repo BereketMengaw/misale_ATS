@@ -59,3 +59,14 @@ export async function dismiss(formData: FormData): Promise<void> {
   await dismissPayment(paymentId)
   revalidatePath('/dashboard/money')
 }
+
+/** The operator has actually sent the tutor their money. */
+export async function payTutor(formData: FormData): Promise<void> {
+  const payoutId = Number(formData.get('payoutId'))
+  const txnRef = String(formData.get('txnRef') ?? '').trim() || null
+  if (!payoutId) return
+
+  const { markPayoutPaid } = await import('@/lib/payouts/service')
+  await markPayoutPaid(payoutId, txnRef)
+  revalidatePath('/dashboard/money')
+}

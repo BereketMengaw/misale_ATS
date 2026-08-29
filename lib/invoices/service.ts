@@ -148,6 +148,11 @@ export async function markInvoicePaid(invoiceId: number, by: 'operator' | 'sms')
     .from('invoices')
     .update({ status: 'paid', paid_at: new Date().toISOString(), paid_by: by })
     .eq('id', invoiceId)
+
+  // A paid invoice always produces a payout, whichever route marked it paid.
+  // Imported here rather than at the top to keep the module cycle out of it.
+  const { createPayoutForInvoice } = await import('@/lib/payouts/service')
+  await createPayoutForInvoice(invoiceId)
 }
 
 export async function markOutboxSent(outboxId: number): Promise<void> {

@@ -4,9 +4,13 @@ A tutoring agency that runs itself. A Telegram bot writes and publishes job post
 ranks tutors, places them with parents, tracks lessons, bills parents and works out payouts. A web
 dashboard is the only place a human touches it.
 
-**Status:** steps 1–3 built — foundations, job-post writing, publishing. That is the first
-stopping point: jobs can be posted properly, in seconds. Steps 4–12 remain — see
-[the build plan](docs/02-build-plan.md).
+**Status:** all twelve steps built and deployed. A job goes from five answered fields to a
+published post, an applicant registers by buttons, gets ranked, accepts a commission, is hired,
+and the money runs through invoice → payment SMS → payout with every figure asserted to the cent.
+
+Lesson reminders and per-lesson timesheets were removed at the operator's request; billing is a
+flat monthly rate. Payment SMS parsers are built from documented formats and need real messages
+before they can be trusted — see `tests/fixtures/sms.ts`.
 
 ## The one rule that shapes everything
 
