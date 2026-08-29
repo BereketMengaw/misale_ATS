@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { applicantsFor } from '@/lib/scoring/board'
 import { previewPool } from '@/lib/talent/service'
-import { formatEtb, split } from '@/lib/money/commission'
+import { formatEtb, prepaymentCents, split } from '@/lib/money/commission'
 import { jobLabel, rateSuffix } from '@/lib/ui/labels'
 import { regenerateJob, saveBody, setApproval } from '../actions'
 import { Badge, PageHeader, PageShell } from '@/components/ui'
@@ -210,7 +210,14 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
               : `${applicants.length} applied · ${asked === 0 ? 'nobody asked' : `${asked} asked`}${accepted ? ' · 1 accepted' : ''}`
           }
         >
-          <Applicants jobId={job.id} jobOpen={open} applicants={applicants} />
+          <Applicants
+            jobId={job.id}
+            jobOpen={open}
+            applicants={applicants}
+            rateAmount={Number(job.rate_amount)}
+            ratePeriod={job.rate_period}
+            commissionPercent={Number(job.commission_percent)}
+          />
         </Phase>
 
         <Phase
@@ -255,6 +262,7 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
 /** Who gets what. The post advertises the tutor's number, so show all three. */
 function Money({ gross, percent, period }: { gross: number; percent: number; period: string }) {
   const s = split(gross, percent)
+  const upfront = prepaymentCents(s.grossCents, percent)
   return (
     <dl className="flex flex-wrap gap-x-6 gap-y-1 text-sm">
       <div className="flex gap-2">
@@ -269,6 +277,17 @@ function Money({ gross, percent, period }: { gross: number; percent: number; per
         <dt className="text-neutral-500">You keep ({percent}%)</dt>
         <dd className="font-medium tabular-nums text-green-800">{formatEtb(s.commissionCents)} ETB{period}</dd>
       </div>
+      {upfront > 0 && (
+        <div className="flex gap-2">
+          <dt className="text-neutral-500">Tutor pre-pays</dt>
+          <dd
+            className="font-medium tabular-nums text-green-800"
+            title="A one-off charge before the first lesson, on top of the fee deducted every period"
+          >
+            {formatEtb(upfront)} ETB once
+          </dd>
+        </div>
+      )}
     </dl>
   )
 }

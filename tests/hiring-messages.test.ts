@@ -29,8 +29,27 @@ describe('hiring messages', () => {
     expect(offer).not.toContain('4,500')
   })
 
-  it('says the fee is already deducted, so nothing is owed later', () => {
+  it('says the monthly fee is already deducted', () => {
     expect(commissionOffer(job, 20)).toContain('already taken out')
+  })
+
+  it('states the pre-payment before they accept, and does not pass it off as a deposit', () => {
+    const offer = commissionOffer(job, 20)
+    // 20% of 4,500 — the money they would actually hand over.
+    expect(offer).toContain('900 ETB')
+    expect(offer).toContain('before your first lesson')
+    expect(offer).toContain('including your first')
+    // The old wording promised the opposite and is now a lie.
+    expect(offer).not.toContain('nothing further to pay')
+  })
+
+  it('repeats the pre-payment at the hire, when it actually falls due', () => {
+    expect(hired(job, 'Selam', 20, 'after_first_payment', null)).toContain('900 ETB is now due')
+  })
+
+  it('says nothing about a pre-payment when the agency takes no fee', () => {
+    expect(commissionOffer(job, 0).toLowerCase()).not.toContain('pre-payment')
+    expect(hired(job, 'Selam', 0, 'never', null).toLowerCase()).not.toContain('pre-payment')
   })
 
   it('offers accept or decline, never a counter-offer', () => {

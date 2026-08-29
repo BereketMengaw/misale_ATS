@@ -1,4 +1,4 @@
-import { formatEtb, split } from '@/lib/money/commission'
+import { formatEtb, prepaymentCents, split } from '@/lib/money/commission'
 
 /**
  * Every message the hiring step sends. PURE — text in, text out — so the
@@ -34,17 +34,30 @@ export function jobLine(job: JobSummary): string {
  */
 export function commissionOffer(job: JobSummary, commissionPercent: number): string {
   const s = split(job.rateAmount, commissionPercent)
-  return [
+  const upfront = prepaymentCents(s.grossCents, commissionPercent)
+
+  const lines = [
     'Good news — you are shortlisted for this job:',
     '',
     jobLine(job),
     `${job.daysPerWeek} days a week`,
     '',
     `You would be paid ${formatEtb(s.netCents)} ETB ${PERIOD[job.ratePeriod]}.`,
-    `Our fee is ${commissionPercent}%, already taken out of that figure — there is nothing further to pay.`,
-    '',
-    'Do you accept?',
-  ].join('\n')
+    `Our fee is ${commissionPercent}%, already taken out of that figure.`,
+  ]
+
+  // Said before they accept, in the money they would actually hand over. A
+  // tutor who finds out about this after saying yes has been misled.
+  if (upfront > 0) {
+    lines.push(
+      '',
+      `There is also a one-off pre-payment of ${formatEtb(upfront)} ETB, due to us before your first lesson.`,
+      'That is separate from the fee above, which still comes out of every payment — including your first.',
+    )
+  }
+
+  lines.push('', 'Do you accept?')
+  return lines.join('\n')
 }
 
 export function commissionAccepted(job: JobSummary): string {
@@ -80,6 +93,14 @@ export function hired(
     '',
     `The family is ${parentFirstName}'s.`,
   ]
+
+  const upfront = prepaymentCents(s.grossCents, commissionPercent)
+  if (upfront > 0) {
+    lines.push(
+      '',
+      `Your one-off pre-payment of ${formatEtb(upfront)} ETB is now due, before the first lesson.`,
+    )
+  }
 
   if (release === 'on_hire' && parentPhone) {
     lines.push(`You can reach them on ${parentPhone}.`)

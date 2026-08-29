@@ -71,3 +71,31 @@ export function formatEtb(cents: number): string {
     maximumFractionDigits: 2,
   })
 }
+
+/**
+ * The one-off pre-payment a tutor owes before their first lesson: the agency's
+ * share of a single billing period, paid up front.
+ *
+ * It is NOT a deposit against the monthly fee. The 20% still comes out of every
+ * payment, the first month included — so the first month costs a tutor twice
+ * the fee, and any message that says otherwise is lying to them. Named
+ * separately from `commissionCents` because it is a different charge that
+ * happens to be the same size, and the two can move apart.
+ */
+export function prepaymentCents(grossCents: number, percent: number): number {
+  return splitCents(grossCents, percent).commissionCents
+}
+
+/** The same pre-payment from an ETB amount, e.g. 4500 at 20% → 90000 cents. */
+export function prepayment(grossAmount: number, percent: number): number {
+  return prepaymentCents(toCents(grossAmount), percent)
+}
+
+/**
+ * What a tutor is out of pocket across their first billing period: the
+ * pre-payment plus the fee deducted from that period's pay.
+ */
+export function firstPeriodCost(grossAmount: number, percent: number): number {
+  const s = split(grossAmount, percent)
+  return prepaymentCents(s.grossCents, percent) + s.commissionCents
+}

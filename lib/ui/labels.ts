@@ -91,3 +91,39 @@ const RATE_SUFFIX: Record<string, string> = {
 export function rateSuffix(period: string): string {
   return RATE_SUFFIX[period] ?? ''
 }
+
+// ---------------------------------------------------------------------------
+// The terms, in the operator's words
+// ---------------------------------------------------------------------------
+
+import { formatEtb, prepaymentCents, split } from '@/lib/money/commission'
+
+const PERIOD_WORD: Record<string, string> = {
+  per_hour: 'per hour',
+  per_session: 'per session',
+  per_month: 'per month',
+}
+
+export type Terms = { net: string; upfront: string; period: string; sentence: string }
+
+/**
+ * What a tutor is about to be told, spelled out for the operator BEFORE he
+ * shortlists anyone. Asking someone to accept is irreversible — the DM cannot
+ * be unsent — so he should not have to remember the terms to know what he is
+ * sending.
+ */
+export function offerTerms(rateAmount: number, ratePeriod: string, commissionPercent: number): Terms {
+  const s = split(rateAmount, commissionPercent)
+  const upfrontCents = prepaymentCents(s.grossCents, commissionPercent)
+  const period = PERIOD_WORD[ratePeriod] ?? ''
+
+  const net = `${formatEtb(s.netCents)} ETB ${period}`.trim()
+  const upfront = `${formatEtb(upfrontCents)} ETB`
+
+  const sentence =
+    upfrontCents > 0
+      ? `They keep ${net} after your ${commissionPercent}% fee, and owe a one-off ${upfront} pre-payment before the first lesson — on top of the fee, not instead of it.`
+      : `They keep ${net}. You take no fee on this job.`
+
+  return { net, upfront, period, sentence }
+}

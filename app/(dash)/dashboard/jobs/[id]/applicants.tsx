@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import type { Applicant } from '@/lib/scoring/board'
-import { applicationLabel } from '@/lib/ui/labels'
+import { applicationLabel, offerTerms } from '@/lib/ui/labels'
 import { hire, presentTop } from '../actions'
 import { Badge, Meter } from '@/components/ui'
 import { Button } from '@/components/ui/button'
@@ -14,11 +14,18 @@ export function Applicants({
   jobId,
   jobOpen,
   applicants,
+  rateAmount,
+  ratePeriod,
+  commissionPercent,
 }: {
   jobId: number
   jobOpen: boolean
   applicants: Applicant[]
+  rateAmount: number
+  ratePeriod: string
+  commissionPercent: number
 }) {
+  const terms = offerTerms(rateAmount, ratePeriod, commissionPercent)
   const untouched = applicants.filter((a) => !a.rank.excluded && a.status === 'applied')
   const inPlay = applicants.filter((a) =>
     ['shortlisted', 'commission_agreed', 'hired'].includes(a.status),
@@ -50,14 +57,25 @@ export function Applicants({
       )}
 
       {jobOpen && untouched.length > 0 && (
-        <div className="flex flex-wrap items-center gap-3 rounded-md border border-neutral-200 bg-neutral-50 p-3">
-          <span className="text-sm text-neutral-600">
-            {presentedAny ? 'Not enough? Ask more.' : 'Ask the best few to accept the commission.'}
-          </span>
+        <div className="space-y-3 rounded-md border border-neutral-200 bg-neutral-50 p-3">
+          <div>
+            <p className="text-sm text-neutral-700">
+              {presentedAny ? 'Not enough? Ask more.' : 'Ask the best few to accept the commission.'}
+            </p>
+            {/* The DM cannot be unsent, so the terms are on screen before it goes. */}
+            <p className="mt-1 text-xs text-neutral-500">
+              <span className="font-medium text-neutral-700">They will be told:</span> {terms.sentence}
+            </p>
+          </div>
           <form action={presentTop}>
             <input type="hidden" name="id" value={jobId} />
             <input type="hidden" name="size" value={presentedAny ? 5 : 3} />
-            <Button variant="primary" size="sm" pendingLabel="Asking…">
+            <Button
+              variant="primary"
+              size="sm"
+              pendingLabel="Asking…"
+              confirm={`Message ${presentedAny ? Math.min(5, untouched.length) : Math.min(3, untouched.length)} tutor(s) with these terms? ${terms.sentence} This cannot be unsent.`}
+            >
               {presentedAny ? `+${Math.min(5, untouched.length)} more` : `Ask top ${Math.min(3, untouched.length)}`}
             </Button>
           </form>

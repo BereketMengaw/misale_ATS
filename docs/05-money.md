@@ -50,6 +50,24 @@ Matching scores reference code + amount + payer name:
 The parser is never a single point of failure. **The invoice list is the source of truth** — an
 unmatched payment shows up as an invoice still unpaid, which is visible. Parsing only saves typing.
 
+## The tutor's pre-payment
+
+Two separate charges, and they are not the same money:
+
+- **The monthly fee** — 20% of the parent's bill, deducted at source. The tutor never hands this
+  over; they are simply paid the remainder.
+- **The pre-payment** — a one-off charge to the tutor before their first lesson, equal to the fee
+  on one billing period. It is **on top of** the monthly deduction, not a deposit against it, so
+  the first period costs a tutor twice the fee.
+
+`prepaymentCents` in `lib/money/commission.ts` is a named function rather than a reuse of
+`commissionCents` for exactly that reason: they are the same size today and could move apart, and
+a test asserts the first period costs both.
+
+A tutor is told the figure in the commission offer, **before** they accept, and again at the hire
+when it falls due. The operator sees the same sentence on screen before he shortlists anyone —
+a shortlist DM cannot be unsent, so the terms are never something he has to remember.
+
 ## Payouts
 
 A paid invoice produces a payout row: **gross − commission = net**, with a due date, shown in

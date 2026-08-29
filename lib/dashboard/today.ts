@@ -2,6 +2,7 @@ import { cache } from 'react'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { isOverdue } from '@/lib/money/invoice'
 import { formatEtb } from '@/lib/money/commission'
+import { offerTerms } from '@/lib/ui/labels'
 
 /**
  * What is waiting on the operator, gathered from wherever it happens to live.
@@ -24,7 +25,7 @@ export type Sendable = {
 
 export type Decision =
   | { kind: 'hire'; key: string; title: string; detail: string; jobId: number; applicationId: number; firstName: string }
-  | { kind: 'present'; key: string; title: string; detail: string; jobId: number; size: number }
+  | { kind: 'present'; key: string; title: string; detail: string; jobId: number; size: number; terms: string }
   | { kind: 'publish'; key: string; title: string; detail: string; jobId: number }
   | { kind: 'chase'; key: string; title: string; detail: string; invoiceId: number; late: boolean }
 
@@ -63,7 +64,10 @@ export const loadToday = cache(async function loadToday(): Promise<Today> {
         .from('applications')
         .select('id, job_post_id, candidates(full_name), job_posts(id, subject, grade, area, status)')
         .eq('status', 'commission_agreed'),
-      db.from('job_posts').select('id, subject, grade, area, created_at').eq('status', 'open'),
+      db
+        .from('job_posts')
+        .select('id, subject, grade, area, created_at, rate_amount, rate_period, commission_percent')
+        .eq('status', 'open'),
       db
         .from('job_posts')
         .select('id, subject, grade, area, approved_at')
@@ -123,6 +127,7 @@ export const loadToday = cache(async function loadToday(): Promise<Today> {
           detail: `${job.subject} · ${job.grade} · ${job.area} · posted ${age} day${age === 1 ? '' : 's'} ago`,
           jobId: job.id,
           size: Math.min(3, bucket.total),
+          terms: offerTerms(Number(job.rate_amount), job.rate_period, Number(job.commission_percent)).sentence,
         })
       }
     }

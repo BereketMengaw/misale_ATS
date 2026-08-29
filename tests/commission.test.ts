@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatEtb, fromCents, split, splitCents, toCents, tutorPay } from '@/lib/money/commission'
+import { firstPeriodCost, formatEtb, fromCents, prepayment, split, splitCents, toCents, tutorPay } from '@/lib/money/commission'
 
 describe('commission split', () => {
   it('splits the advertised rate the way the operator decided', () => {
@@ -69,5 +69,33 @@ describe('commission split', () => {
     expect(s.commissionCents).toBe(90120) // 901.20
     expect(s.netCents).toBe(360480) // 3,604.80
     expect(formatEtb(s.netCents)).toBe('3,604.80')
+  })
+})
+
+describe('the tutor pre-payment', () => {
+  it('is one period of commission, paid up front', () => {
+    expect(prepayment(4500, 20)).toBe(90000)
+    expect(prepayment(4000, 20)).toBe(80000)
+  })
+
+  it('is charged ON TOP of the monthly deduction, not instead of it', () => {
+    // A tutor on 4,000/month at 20% pays 800 up front AND has 800 deducted
+    // from the first month. Treating the pre-payment as a deposit would make
+    // this 800, and would short the agency by a month's fee on every hire.
+    expect(firstPeriodCost(4000, 20)).toBe(160000)
+    expect(firstPeriodCost(4000, 20)).toBe(prepayment(4000, 20) + split(4000, 20).commissionCents)
+  })
+
+  it('never loses a cent against the split it comes from', () => {
+    for (const amount of [1, 33.33, 999.99, 4500, 12345.67]) {
+      for (const percent of [0, 7.5, 20, 33, 99]) {
+        expect(prepayment(amount, percent)).toBe(split(amount, percent).commissionCents)
+      }
+    }
+  })
+
+  it('is nothing when the agency takes nothing', () => {
+    expect(prepayment(4500, 0)).toBe(0)
+    expect(firstPeriodCost(4500, 0)).toBe(0)
   })
 })

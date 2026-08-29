@@ -53,6 +53,11 @@ export default async function TodayPage() {
                 <div className="min-w-0 grow">
                   <p className="text-sm font-medium">{d.title}</p>
                   <p className="mt-0.5 text-xs text-neutral-500">{d.detail}</p>
+                  {d.kind === 'present' && (
+                    <p className="mt-1 text-xs text-neutral-500">
+                      <span className="font-medium text-neutral-700">They will be told:</span> {d.terms}
+                    </p>
+                  )}
                 </div>
                 <DecisionAction decision={d} />
               </Row>
@@ -130,7 +135,12 @@ function DecisionAction({ decision }: { decision: Decision }) {
         <form action={presentTop}>
           <input type="hidden" name="id" value={decision.jobId} />
           <input type="hidden" name="size" value={decision.size} />
-          <Button variant="primary" size="sm" pendingLabel="Asking…">
+          <Button
+            variant="primary"
+            size="sm"
+            pendingLabel="Asking…"
+            confirm={`Message ${decision.size} tutor(s) with these terms? ${decision.terms} This cannot be unsent.`}
+          >
             Ask top {decision.size}
           </Button>
         </form>
