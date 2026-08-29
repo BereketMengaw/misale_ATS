@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button'
 
 export type PoolPreview = {
   chosen: { candidateId: number; name: string; score: number }[]
+  skipped: { candidateId: number; name: string; reason: string }[]
   rules: { minScore: number; maxPerJob: number; cooldownDays: number }
 }
 
@@ -78,9 +79,33 @@ export function TalentPanel({
             in {preview.rules.cooldownDays} days.
           </p>
         </div>
+      ) : preview && preview.skipped.length > 0 ? (
+        /*
+         * selectForDm already works out why each tutor was ruled out. Throwing
+         * that away left "Nobody fits yet" on a job whose only candidate had
+         * simply applied already — true, and no use to anyone.
+         */
+        <div className="space-y-2 rounded-md border border-neutral-200 bg-neutral-50 p-3">
+          <p className="text-sm text-neutral-700">
+            {preview.skipped.length} in the pool, {preview.skipped.length === 1 ? 'and none' : 'and none of them'} can
+            be messaged about this job.
+          </p>
+          <ul className="space-y-1">
+            {preview.skipped.map((c) => (
+              <li key={c.candidateId} className="flex flex-wrap items-baseline justify-between gap-3 text-sm">
+                <span>{c.name}</span>
+                <span className="text-xs text-neutral-500">{c.reason}</span>
+              </li>
+            ))}
+          </ul>
+          <p className="text-xs text-neutral-400">
+            Scores {preview.rules.minScore}+ · at most {preview.rules.maxPerJob} · nobody messaged twice
+            in {preview.rules.cooldownDays} days.
+          </p>
+        </div>
       ) : (
         <p className="text-sm text-neutral-500">
-          {sent.length > 0 ? 'Everyone who fits has been messaged.' : 'Nobody in the pool fits this job yet.'}
+          {sent.length > 0 ? 'Everyone who fits has been messaged.' : 'Nobody has registered yet, so the pool is empty.'}
         </p>
       )}
     </div>

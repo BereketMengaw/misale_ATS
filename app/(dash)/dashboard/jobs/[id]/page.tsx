@@ -193,7 +193,9 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
                 ? `${sent.length} messaged · ${sent.filter((m) => m.applied_at).length} applied`
                 : preview && preview.chosen.length > 0
                   ? `${preview.chosen.length} fit and have not applied`
-                  : 'Nobody fits yet'
+                  : preview && preview.skipped.length > 0
+                    ? `${preview.skipped.length} in the pool · none can be messaged`
+                    : 'The pool is empty'
             }
           >
             <TalentPanel jobId={job.id} preview={preview} sent={sent} />

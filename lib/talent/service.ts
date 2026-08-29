@@ -44,7 +44,8 @@ async function matchRules(): Promise<MatchRules> {
 export type PoolPreview = {
   jobId: number
   chosen: { candidateId: number; name: string; score: number }[]
-  skipped: Skipped[]
+  /** Everyone the rules ruled out, and the rule that ruled them out. */
+  skipped: (Skipped & { name: string })[]
   rules: MatchRules
 }
 
@@ -117,7 +118,7 @@ export async function previewPool(jobId: number): Promise<PoolPreview | null> {
   return {
     jobId,
     chosen: chosen.map((c) => ({ candidateId: c.candidateId, name: names.get(c.candidateId) ?? 'Unnamed', score: c.score })),
-    skipped,
+    skipped: skipped.map((x) => ({ ...x, name: names.get(x.candidateId) ?? 'Unnamed' })),
     rules,
   }
 }
