@@ -28,34 +28,44 @@ export async function checkChannel(target: string): Promise<ChannelCheck> {
 
   try {
     const chat = await bot.api.getChat(chatRef)
-    if (chat.type !== 'channel' && chat.type !== 'supergroup') {
-      return { ok: false, detail: `That is a ${chat.type}, not a channel.` }
+    if (chat.type !== 'channel' && chat.type !== 'supergroup' && chat.type !== 'group') {
+      return { ok: false, detail: `That is a ${chat.type} chat — jobs go to a channel or a group.` }
     }
 
     const member = await bot.api.getChatMember(chat.id, bot.botInfo.id)
-    if (member.status !== 'administrator') {
-      return {
-        ok: false,
-        chatId: chat.id,
-        title: chat.title,
-        detail: `The bot is "${member.status}" here, not an administrator.`,
-      }
+    const where = { chatId: chat.id, title: chat.title }
+    const username = 'username' in chat ? (chat.username ?? null) : null
+
+    if (member.status === 'left' || member.status === 'kicked') {
+      return { ok: false, ...where, detail: `The bot is not in this ${chat.type}.` }
     }
-    if (member.can_post_messages === false) {
-      return {
-        ok: false,
-        chatId: chat.id,
-        title: chat.title,
-        detail: 'Admin, but without "Post messages" permission.',
+
+    if (chat.type === 'channel') {
+      // Only channels have posting rights: a channel admin without
+      // can_post_messages genuinely cannot send.
+      if (member.status !== 'administrator') {
+        return { ...where, ok: false, detail: `The bot is "${member.status}" here, not an administrator.` }
       }
+      if (member.can_post_messages === false) {
+        return { ...where, ok: false, detail: 'Admin, but without "Post messages" permission.' }
+      }
+      return { ...where, username, ok: true, detail: 'Bot is an admin and can post.' }
+    }
+
+    // Groups: any member may post unless the group restricts it, and
+    // can_post_messages does not exist here — reading it would always be undefined.
+    if (member.status === 'restricted' && member.can_send_messages === false) {
+      return { ...where, ok: false, detail: 'The bot is restricted from sending messages here.' }
     }
 
     return {
+      ...where,
+      username,
       ok: true,
-      chatId: chat.id,
-      title: chat.title,
-      username: 'username' in chat ? (chat.username ?? null) : null,
-      detail: 'Bot is an admin and can post.',
+      detail:
+        member.status === 'administrator'
+          ? 'Bot is an admin and can post.'
+          : 'Bot is a member and can post. Make it an admin so its posts are not deleted.',
     }
   } catch (err) {
     const message =
