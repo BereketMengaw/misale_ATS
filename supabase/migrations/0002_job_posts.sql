@@ -47,6 +47,6 @@ create index job_posts_status_idx on job_posts (status, created_at desc);
 alter table job_posts enable row level security;
 
 -- Operators read jobs through the dashboard's own session; writes go via the
--- service role in server actions.
+-- secret key in server actions.
 create policy job_posts_operator_select on job_posts
   for select using (exists (select 1 from operators o where o.id = auth.uid()));

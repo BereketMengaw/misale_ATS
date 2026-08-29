@@ -34,7 +34,7 @@ create trigger operators_updated_at
 
 alter table operators enable row level security;
 
--- An operator can read their own row. Everything else goes through the service role.
+-- An operator can read their own row. Everything else goes through the secret key, which bypasses RLS.
 create policy operators_self_select on operators
   for select using (auth.uid() = id);
 

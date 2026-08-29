@@ -13,12 +13,12 @@ export const env = {
   get supabaseUrl() {
     return required('NEXT_PUBLIC_SUPABASE_URL')
   },
-  get supabaseAnonKey() {
-    return required('NEXT_PUBLIC_SUPABASE_ANON_KEY')
+  get supabasePublishableKey() {
+    return required('NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY')
   },
-  /** Service role — server only. Never import this into a client component. */
-  get supabaseServiceKey() {
-    return required('SUPABASE_SERVICE_ROLE_KEY')
+  /** Secret key — bypasses row-level security. Server only, never a client component. */
+  get supabaseSecretKey() {
+    return required('SUPABASE_SECRET_KEY')
   },
   get telegramBotToken() {
     return required('TELEGRAM_BOT_TOKEN')
