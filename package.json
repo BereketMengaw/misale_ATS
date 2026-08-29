@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "bot:set-webhook": "tsx scripts/set-webhook.ts"
+    "bot:set-webhook": "tsx --env-file=.env.local scripts/set-webhook.mts",
+    "doctor": "tsx --env-file=.env.local scripts/doctor.mts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.5.2",

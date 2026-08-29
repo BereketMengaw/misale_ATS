@@ -48,6 +48,16 @@ Then, once:
 4. **Test channel** — create a private channel, add the bot as an admin with "Post messages",
    then add it under `/dashboard/channels`.
 
+Then check it all landed:
+
+```bash
+npm run doctor
+```
+
+It verifies the tables, the seeded settings, the stored function, the bot token, the webhook, and
+whether the bot can actually post in each channel — and tells you what to do about anything that
+failed. Green means send `/start` to the bot and publish a job.
+
 `npm test` runs the unit tests; `npm run typecheck` and `npm run build` must both stay clean.
 
 Client-facing summary: https://claude.ai/code/artifact/72322bd0-2798-42b1-99c0-c70427c0b03c
