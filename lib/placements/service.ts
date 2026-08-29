@@ -1,21 +1,46 @@
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { isValidSchedule, type Schedule } from './schedule'
 
+/**
+ * The application, with the job it is for.
+ *
+ * The embed names its foreign key on purpose: job_posts.hired_application_id
+ * points back at applications, so there are TWO relationships between these
+ * tables and an unqualified `job_posts(...)` is rejected as ambiguous.
+ */
+type HiredApplication = {
+  id: number
+  job_post_id: number
+  candidate_id: number
+  commission_percent: number | null
+  job_posts: {
+    rate_amount: number
+    rate_period: string
+    commission_percent: number
+    client_id: number | null
+  } | null
+}
+
+const HIRED_APPLICATION_SELECT =
+  'id, job_post_id, candidate_id, commission_percent, ' +
+  'job_posts!applications_job_post_id_fkey(rate_amount, rate_period, commission_percent, client_id)'
+
 /** Created at hire, with the figures frozen as they were agreed. */
 export async function createPlacementFromHire(applicationId: number): Promise<number | null> {
   const db = supabaseAdmin()
 
-  const { data: app } = await db
+  const { data: app, error: appError } = await db
     .from('applications')
-    .select('id, job_post_id, candidate_id, commission_percent, job_posts(rate_amount, rate_period, commission_percent, client_id)')
+    .select(HIRED_APPLICATION_SELECT)
     .eq('id', applicationId)
-    .maybeSingle()
-  if (!app) return null
+    .maybeSingle<HiredApplication>()
 
-  const job = app.job_posts as unknown as {
-    rate_amount: number; rate_period: string; commission_percent: number; client_id: number | null
-  } | null
-  if (!job) return null
+  if (appError || !app?.job_posts) {
+    console.error('createPlacementFromHire could not read the application', appError)
+    return null
+  }
+
+  const job = app.job_posts
 
   const { data, error } = await db
     .from('placements')

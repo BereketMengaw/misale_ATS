@@ -19,7 +19,7 @@ export default async function CandidatePage({ params }: { params: Promise<{ id: 
 
   const { data: applications } = await db
     .from('applications')
-    .select('id, status, created_at, job_posts(id, subject, grade, area)')
+    .select('id, status, created_at, job_posts!applications_job_post_id_fkey(id, subject, grade, area)')
     .eq('candidate_id', c.id)
     .order('created_at', { ascending: false })
 
