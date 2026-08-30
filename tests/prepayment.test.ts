@@ -4,7 +4,7 @@ import {
   prepaymentTerms, prepaymentTotals, type CountablePrepayment, type StageInput,
 } from '@/lib/money/prepayment'
 import { prepayment, split, toCents } from '@/lib/money/commission'
-import { checkAccount, isPayable, maskAccount } from '@/lib/candidates/payout-details'
+import { checkAccount, isPayable } from '@/lib/candidates/payout-details'
 import { matchPrepayment, type PrepaymentCandidate } from '@/lib/payments/match-prepayment'
 import type { ParsedPayment } from '@/lib/payments/parse'
 
@@ -159,13 +159,6 @@ describe('where a tutor is paid', () => {
     expect(checkAccount('Abebe Kebede')).toMatchObject({ ok: false, reason: 'not-digits' })
     expect(checkAccount('12345')).toMatchObject({ ok: false, reason: 'too-short' })
     expect(checkAccount('1'.repeat(21))).toMatchObject({ ok: false, reason: 'too-long' })
-  })
-
-  it('shows enough of the number to recognise and not enough to reuse', () => {
-    const masked = maskAccount('1000123456789')
-    expect(masked.startsWith('1000')).toBe(true)
-    expect(masked.endsWith('6789')).toBe(true)
-    expect(masked).not.toContain('12345')
   })
 
   it('is payable only with all three of provider, account and name', () => {

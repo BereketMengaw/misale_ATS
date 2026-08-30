@@ -41,13 +41,6 @@ export function checkAccount(input: string): AccountCheck {
   return { ok: true, account: digits }
 }
 
-/** "1000•••••6789" — enough to recognise, not enough to reuse if a screen leaks. */
-export function maskAccount(account: string | null): string {
-  if (!account) return '—'
-  if (account.length <= 8) return account
-  return `${account.slice(0, 4)}${'•'.repeat(Math.min(5, account.length - 8))}${account.slice(-4)}`
-}
-
 export type PayoutDestination = {
   provider: PayoutProvider | null
   account: string | null

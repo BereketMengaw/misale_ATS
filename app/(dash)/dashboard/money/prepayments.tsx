@@ -2,7 +2,7 @@ import { formatEtb } from '@/lib/money/commission'
 import {
   daysUntilDue, prepaymentStage, prepaymentTotals, type CountablePrepayment,
 } from '@/lib/money/prepayment'
-import { maskAccount, providerLabel, type PayoutProvider } from '@/lib/candidates/payout-details'
+import { providerLabel, type PayoutProvider } from '@/lib/candidates/payout-details'
 import { prepaymentLabel } from '@/lib/ui/labels'
 import { Badge, EmptyState, Table, Td, Th, Thead, Tr } from '@/components/ui'
 import { Button } from '@/components/ui/button'
@@ -140,7 +140,7 @@ export function Prepayments({
                   {tutor?.payout_account ? (
                     <span className="text-neutral-500">
                       {providerLabel(tutor.payout_provider as PayoutProvider)}{' '}
-                      {maskAccount(tutor.payout_account)}
+                      <span className="select-all font-mono">{tutor.payout_account}</span>
                     </span>
                   ) : (
                     <span className="text-amber-700">not given</span>

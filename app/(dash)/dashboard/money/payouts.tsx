@@ -1,5 +1,5 @@
 import { formatEtb } from '@/lib/money/commission'
-import { isPayable, maskAccount, providerLabel, type PayoutProvider } from '@/lib/candidates/payout-details'
+import { isPayable, providerLabel, type PayoutProvider } from '@/lib/candidates/payout-details'
 import { reconciles, total, type Payout } from '@/lib/money/payout'
 import { Badge, EmptyState, Table, Td, Th, Thead, Tr } from '@/components/ui'
 import { Button } from '@/components/ui/button'
@@ -81,7 +81,11 @@ export function Payouts({ rows }: { rows: PayoutRow[] }) {
                 <Td className="text-xs">
                   {payable ? (
                     <span className="text-neutral-500">
-                      {providerLabel(destination.provider)} {maskAccount(destination.account)}
+                      {providerLabel(destination.provider)}{' '}
+                      {/* In full, and select-all: this is the screen the transfer
+                          is made from, and a number you cannot copy is a number
+                          you retype by hand into a banking app. */}
+                      <span className="select-all font-mono text-neutral-900">{destination.account}</span>
                       <span className="block text-neutral-400">{destination.name}</span>
                     </span>
                   ) : (
