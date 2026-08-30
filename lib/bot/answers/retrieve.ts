@@ -30,9 +30,17 @@ export function normalize(text: string): string {
 /** Crude singular. "jobs" and "job" must not be different topics. */
 function stem(word: string): string {
   if (word.length > 3 && word.endsWith('ies')) return `${word.slice(0, -3)}y`
-  if (word.length > 3 && word.endsWith('es')) return word.slice(0, -2)
+  // Only a real -es plural loses both letters: "boxes", "classes", "matches".
+  // Stripping "es" from every word turned "times" into "tim" and, worse,
+  // "fees" into "fe" — so nobody asking about fees ever reached that answer.
+  if (word.length > 4 && /(?:s|x|z|ch|sh)es$/.test(word)) return word.slice(0, -2)
   if (word.length > 2 && word.endsWith('s')) return word.slice(0, -1)
   return word
+}
+
+/** The question with every word stemmed, stop words kept, for phrase matching. */
+function stemAll(text: string): string {
+  return normalize(text).split(' ').filter(Boolean).map(stem).join(' ')
 }
 
 function tokens(text: string): string[] {
@@ -50,8 +58,14 @@ export type Match = {
 /**
  * A phrase that appears whole beats any single word: "how much" in "how much
  * do you pay" should outrank the bare "how".
+ *
+ * Scored by its length, because a long phrase is a more specific claim on a
+ * question than a short one. Flat scoring let "how long" (the wait) beat
+ * "how long to register" on a question about registering.
  */
-const PHRASE_POINTS = 4
+function phrasePoints(phrase: string): number {
+  return 2 * phrase.split(' ').length
+}
 
 /**
  * How many entries each single word belongs to. A word that points at exactly
@@ -79,12 +93,14 @@ function wordPoints(word: string): number {
 }
 
 function scoreEntry(entry: KnowledgeEntry, question: string, asked: Set<string>): number {
-  const flat = ` ${normalize(question)} `
+  // Stemmed on both sides, so the keyword "lesson time" still claims someone
+  // asking about their "lesson times".
+  const flat = ` ${stemAll(question)} `
   let score = 0
 
   for (const keyword of entry.keywords) {
     if (keyword.includes(' ')) {
-      if (flat.includes(` ${keyword} `)) score += PHRASE_POINTS
+      if (flat.includes(` ${stemAll(keyword)} `)) score += phrasePoints(keyword)
       continue
     }
     const word = stem(keyword)

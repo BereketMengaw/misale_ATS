@@ -26,7 +26,7 @@ export const KNOWLEDGE: KnowledgeEntry[] = [
     topic: 'How do I get a job?',
     keywords: [
       'how does this work', 'how do i get a job', 'how to get job', 'get hired',
-      'process', 'work', 'start', 'apply', 'application', 'how',
+      'how this works', 'how it works', 'get a job',
     ],
     answer:
       'Apply to anything open. We rank everyone who applied, ask the best few to accept the terms, and the family picks from those who accept. Tap "Open jobs" to see what is live now.',
@@ -66,7 +66,8 @@ export const KNOWLEDGE: KnowledgeEntry[] = [
     id: 'hear-back',
     topic: 'When do I hear back?',
     keywords: [
-      'hear back', 'when', 'how long', 'reply', 'response', 'waiting', 'wait',
+      'hear back', 'how long until', 'how long to wait', 'reply',
+      'response', 'waiting', 'wait',
       'status', 'update', 'result', 'answer me', 'still waiting',
     ],
     answer:
@@ -97,11 +98,11 @@ export const KNOWLEDGE: KnowledgeEntry[] = [
     id: 'ranking',
     topic: 'How are applicants ranked?',
     keywords: [
-      'rank', 'ranking', 'score', 'compare', 'why not me', 'chances',
+      'rank', 'ranking', 'ranked', 'score', 'compare', 'why not me', 'chances',
       'criteria', 'requirement', 'qualify', 'qualification',
     ],
     answer:
-      'Everyone who applies is scored on the same things: subjects and grades you teach, how close you are to the family, your availability, your experience and your education. A complete profile ranks better than an empty one.',
+      'Everyone who applies is scored the same way. Teaching the subject counts most, then how close you live to the family, then the grade, whether your days cover what the job needs, your experience and your education, and how your past placements were rated. Never having been rated does not count against you.',
   },
   {
     id: 'negotiate',
@@ -138,7 +139,7 @@ export const KNOWLEDGE: KnowledgeEntry[] = [
     id: 'cv',
     topic: 'Do I need a CV?',
     keywords: [
-      'cv', 'resume', 'document', 'upload', 'file', 'certificate', 'degree',
+      'cv', 'resume', 'document', 'upload', 'file', 'certificate',
       'transcript', 'attach',
     ],
     answer:
@@ -164,11 +165,11 @@ export const KNOWLEDGE: KnowledgeEntry[] = [
     id: 'schedule',
     topic: 'How do lessons and hours work?',
     keywords: [
-      'schedule', 'hours', 'timesheet', 'lesson', 'session', 'days', 'times',
-      'timetable', 'attendance', 'confirm hours', 'how many days',
+      'schedule', 'lesson', 'session', 'days', 'times', 'timetable',
+      'how many days', 'how long is a lesson',
     ],
     answer:
-      'Each post says how many days a week and roughly how long a session runs. Once you are placed, this chat reminds you around each lesson and you confirm the hours you taught with a button. Those confirmed hours are what everything is paid from.',
+      'Each post says how many days a week and roughly how long a session runs. The exact times are whatever you and the family agree once you are hired — nobody here sets your timetable, and there is nothing to log afterwards.',
   },
   {
     id: 'when-paid',
@@ -178,7 +179,7 @@ export const KNOWLEDGE: KnowledgeEntry[] = [
       'end of month', 'get my money', 'late payment',
     ],
     answer:
-      'You are paid on the hours you confirmed, after the family has paid for that period. The figure is the one from your offer, with nothing further taken off.',
+      'After the family has paid for that period. The figure is the one from your offer, with nothing further taken off — our fee came out before you ever saw it.',
   },
   {
     id: 'multiple-jobs',
@@ -210,6 +211,146 @@ export const KNOWLEDGE: KnowledgeEntry[] = [
     ],
     answer:
       'Misale places tutors with families in Addis. We never ask for money to apply or to be shortlisted, and your phone number is not shown to a family until you are hired. Any figure you owe is written in an offer before you accept it.',
+  },
+  {
+    id: 'pay-to-apply',
+    topic: 'Do I pay anything to apply?',
+    keywords: [
+      'pay to apply', 'pay you to apply', 'have to pay', 'pay to register',
+      'application fee', 'is it free', 'free to apply', 'money to apply',
+      'pay you first', 'pay anything', 'cost me',
+    ],
+    answer:
+      'No. Applying and registering are free, and nothing is ever due before you are hired. The only amount you owe us is the one-off pre-payment, and that is named in your offer before you accept it.',
+  },
+  {
+    id: 'requirements',
+    topic: 'What do I need to qualify?',
+    keywords: [
+      'requirement', 'qualified', 'eligible', 'degree', 'diploma', 'university',
+      'college', 'who can apply', 'am i good enough', 'still a student',
+    ],
+    answer:
+      'There is no fixed bar. You are scored against the others who applied, so what decides it is the fit — the subject, the grade, how near you live and the days you can teach. Education and experience count, but a close match beats a long CV.',
+  },
+  {
+    id: 'registration-time',
+    topic: 'How long does registering take?',
+    keywords: [
+      'registering', 'registration', 'how long to register', 'how many step',
+      'take long', 'quick', 'minutes',
+    ],
+    answer:
+      'A couple of minutes. Thirteen steps, nearly all of them buttons — the only thing you type is your name, and your number if the share button does not appear. You can stop part way and pick up where you left off.',
+  },
+  {
+    id: 'why-phone',
+    topic: 'Why do you need my phone number?',
+    keywords: [
+      'why my phone', 'need my phone number', 'why my number',
+      'who sees my number', 'is my number safe', 'share my number',
+    ],
+    answer:
+      'So a family can reach you once you are hired, and not before. It is never shown while you are applying or shortlisted, and it is not published anywhere.',
+  },
+  {
+    id: 'apply-many-jobs',
+    topic: 'Can I apply to more than one job?',
+    keywords: [
+      'apply to more', 'several job', 'many job', 'apply again', 'apply twice',
+      'other job', 'more posts',
+    ],
+    answer:
+      'Yes, to as many as suit you. Registering once is enough — after that each application is a single tap, and every job is judged on its own.',
+  },
+  {
+    id: 'why-not-chosen',
+    topic: 'Why was I not chosen?',
+    keywords: [
+      'why not chosen', 'not chosen', 'not selected', 'someone else got',
+      'lost the job', 'passed over',
+    ],
+    answer:
+      'Almost always because someone matched that job more closely — the subject, the grade, or how near they live. It is not a mark against you and it does not carry into the next one. You stay in the pool.',
+  },
+  {
+    id: 'decline-offer',
+    topic: 'What if I turn an offer down?',
+    keywords: [
+      'decline', 'refuse', 'say no', 'turn down', 'not accept',
+      'change my mind', 'withdraw',
+    ],
+    answer:
+      'Nothing else changes. You are out of that one job and stay in the pool for everything else, and we keep messaging you when a job suits you. There is no penalty and nothing to explain.',
+  },
+  {
+    id: 'after-hired',
+    topic: 'What happens once I am hired?',
+    keywords: [
+      'after hired', 'once hired', 'what next', 'next step', 'got the job',
+      'start teaching', 'first lesson',
+    ],
+    answer:
+      'You get a message here with the job, what you are paid, and the family. Your one-off pre-payment falls due before the first lesson. After that you agree the times with the family directly and teach — there is nothing to send back to us.',
+  },
+  {
+    id: 'family-contact',
+    topic: 'When do I get the family details?',
+    keywords: [
+      'family number', 'family contact', 'parent number', 'their number',
+      'address', 'where do i go', 'reach the family', 'contact the family',
+    ],
+    answer:
+      'At the hire. The message telling you the job is yours carries the family name and phone number, and from then on you arrange lessons with them directly.',
+  },
+  {
+    id: 'confirm-hours',
+    topic: 'Do I have to log my hours?',
+    keywords: [
+      'log hours', 'confirm hours', 'timesheet', 'attendance', 'record hours',
+      'report hours', 'count hours', 'hours',
+    ],
+    answer:
+      'No. Billing is a flat monthly rate, so nobody counts lessons and there is nothing for you to submit. Teach the days you agreed and that is all.',
+  },
+  {
+    id: 'how-pay-calculated',
+    topic: 'How is my pay worked out?',
+    keywords: [
+      'calculated', 'worked out', 'how is my pay', 'monthly rate',
+      'per month', 'billing', 'how much a month',
+    ],
+    answer:
+      'Billing is monthly. On a monthly rate you are simply paid that figure. On an hourly or per-session rate the month is billed for the lessons your agreed days actually fall on, counted off the calendar — so a long month pays more than a short one.',
+  },
+  {
+    id: 'lesson-times',
+    topic: 'Who decides the lesson times?',
+    keywords: [
+      'lesson time', 'who decides', 'what time', 'arrange', 'agree times',
+      'change the time', 'when are lessons', 'reschedule',
+    ],
+    answer:
+      'You and the family, between you. The post fixes how many days a week; the hours are whatever you both agree once you are hired. Nobody here sets or changes your timetable.',
+  },
+  {
+    id: 'reminders',
+    topic: 'Will I get lesson reminders?',
+    keywords: [
+      'reminder', 'remind me', 'notification', 'alert', 'will you remind',
+    ],
+    answer:
+      'No. This chat messages you about jobs, offers and hires — not about individual lessons. Once you are placed, the timetable is between you and the family.',
+  },
+  {
+    id: 'accepted-what-now',
+    topic: 'I accepted — what happens now?',
+    keywords: [
+      'i accepted', 'accepted the offer', 'waiting after accepting',
+      'family choosing', 'shortlist now what',
+    ],
+    answer:
+      'The family is choosing between the few who accepted. You will hear here either way, and there is nothing to do in the meantime — no one to call and nothing to send.',
   },
 ]
 

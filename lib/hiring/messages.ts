@@ -112,7 +112,9 @@ export function hired(
     lines.push('Arrange your lessons through this bot.')
   }
 
-  lines.push('', 'We will remind you before every lesson and ask you to confirm the hours you worked.')
+  // Migration 0009 removed lesson reminders and timesheets — billing is a flat
+  // monthly rate, so nothing counts hours. This used to promise both.
+  lines.push('', 'Nothing to send us after this: billing is monthly, so there are no hours to log.')
   return lines.join('\n')
 }
 

@@ -114,6 +114,14 @@ describe('retrieve', () => {
     expect(retrieve('hello sir')).toEqual([])
   })
 
+  // "times" once stemmed to "tim" and "fees" to "fe", so the keyword they were
+  // meant to match went unreached. Any word whose -e belongs to the stem.
+  it('keeps the e that belongs to the word', () => {
+    expect(bestAnswer('what are your fees')?.id).toBe('commission')
+    expect(bestAnswer('who decides the lesson times')?.id).toBe('lesson-times')
+    expect(bestAnswer('what are the rates')?.id).toBe(bestAnswer('what is the rate')?.id)
+  })
+
   it('matches the singular and the plural alike', () => {
     expect(bestAnswer('how many hours')?.id).toBe(bestAnswer('how many hour')?.id)
   })
