@@ -11,7 +11,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "bot:set-webhook": "tsx --env-file=.env.local scripts/set-webhook.mts",
-    "doctor": "tsx --env-file=.env.local scripts/doctor.mts"
+    "doctor": "tsx --env-file=.env.local scripts/doctor.mts",
+    "mine:telegram": "tsx --env-file=.env.local --tsconfig tsconfig.json scripts/telegram-mine.mts",
+    "mine:export": "tsx --tsconfig tsconfig.json scripts/mine-chats.mts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.5.2",
@@ -29,8 +31,10 @@
     "@types/react": "^18.3.11",
     "@types/react-dom": "^18.3.0",
     "autoprefixer": "^10.4.20",
+    "input": "^1.0.1",
     "postcss": "^8.4.47",
     "tailwindcss": "^3.4.13",
+    "telegram": "^2.26.22",
     "tsx": "^4.19.1",
     "typescript": "^5.6.2",
     "vitest": "^2.1.2"
