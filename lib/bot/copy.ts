@@ -47,7 +47,7 @@ export const copy = {
      * see the design rule in CLAUDE.md.
      */
     uncovered:
-      "That one I can't answer — nobody has written it down yet, and I would rather say so than guess. Try me another way, or ask about the pay, our fee, the pre-payment, or how the hiring runs.",
+      "That one I can't answer — nobody has written it down yet, and I would rather say so than guess. These are the nearest things I do know, or ask me again in different words.",
 
     /** Asked something in the middle of registering. Answer, then point back. */
     backToRegistration: 'Now — back to your registration. Tap the buttons above to carry on.',

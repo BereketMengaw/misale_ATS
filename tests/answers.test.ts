@@ -3,6 +3,7 @@ import { ACTIONS, KNOWLEDGE, actionFor, entryById, knowledgeFingerprint } from '
 import { readFileSync } from 'node:fs'
 import { DEFAULT_AREAS } from '@/lib/candidates/options'
 import { bestAnswer, normalize, retrieve, scoreAll } from '@/lib/bot/answers/retrieve'
+import { nearestTopics } from '@/lib/bot/answers/service'
 import { rejectAnswer } from '@/lib/ai/provider'
 import { answerQuestionTemplate } from '@/lib/ai/providers/template'
 
@@ -328,5 +329,49 @@ describe('the button an answer carries', () => {
   it('has no button when nothing matched, or when nothing matched has one', () => {
     expect(actionFor([])).toBeNull()
     expect(actionFor([KNOWLEDGE.find((e) => e.id === 'hear-back')!])).toBeNull()
+  })
+})
+
+/**
+ * "I can't answer that" is the one reply that must leave somewhere to go. It
+ * used to recite four fixed topics in prose — a menu nobody could tap, the
+ * same four for everybody, and it asked a person who had already failed to
+ * find the words to go and find better ones.
+ */
+describe('what to offer when nothing was answered', () => {
+  it('offers what was matched, when something was', () => {
+    const matched = [KNOWLEDGE[0], KNOWLEDGE[1]]
+    expect(nearestTopics('anything', matched)).toEqual(matched)
+  })
+
+  it('offers the near misses rather than the same three defaults', () => {
+    // Scores above zero but under MIN_SCORE: not good enough to assert, easily
+    // good enough to offer.
+    const near = nearestTopics('is the prepayment refundable', [])
+    expect(near.length).toBeGreaterThan(0)
+    expect(near.map((e) => e.id)).toContain('pre-payment')
+  })
+
+  it('is about the question, not the same list every time', () => {
+    const aboutPay = nearestTopics('when does the salary arrive', []).map((e) => e.id)
+    const aboutCv = nearestTopics('do you need my transcript', []).map((e) => e.id)
+    expect(aboutPay).not.toEqual(aboutCv)
+  })
+
+  it('falls back to the general topics only when nothing was touched at all', () => {
+    const ids = nearestTopics('zzzz qqqq', []).map((e) => e.id)
+    expect(ids).toEqual(['how-it-works', 'pay', 'hear-back'])
+  })
+
+  it('never offers more than three', () => {
+    expect(nearestTopics('pay fee payment money job cv', []).length).toBeLessThanOrEqual(3)
+  })
+
+  it('only ever offers entries that exist, so every button resolves', () => {
+    for (const q of ['pay', 'zzzz', 'prepayment refund', 'can i teach two families']) {
+      for (const entry of nearestTopics(q, [])) {
+        expect(entryById(entry.id), `${q} -> ${entry.id}`).toBeTruthy()
+      }
+    }
   })
 })

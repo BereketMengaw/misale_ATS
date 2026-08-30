@@ -3,7 +3,7 @@ import { getSession, saveSession } from '@/lib/bot/session'
 import { standingOf } from './standing'
 import { activeProviderName, answerQuestion } from '@/lib/ai/provider'
 import { actionFor, KNOWLEDGE, knowledgeFingerprint, type KnowledgeEntry } from './knowledge'
-import { normalize, retrieve } from './retrieve'
+import { normalize, retrieve, scoreAll } from './retrieve'
 
 /**
  * Answering a typed question: the I/O around the pure parts.
@@ -170,9 +170,20 @@ async function record(row: {
 /**
  * The nearest topics to offer when an answer lands — or when none does.
  * A question the bot cannot answer still has to leave somewhere to go.
+ *
+ * When nothing scored high enough to answer from, the near misses are still
+ * the best guess anyone has. `retrieve` drops everything under MIN_SCORE
+ * because a weak match is not good enough to ASSERT — but it is easily good
+ * enough to offer, and "you asked about X, here are the three topics nearest
+ * to X" beats the same three defaults for everybody. Only a question that
+ * touched nothing at all falls back to the general ones.
  */
-function relatedTo(matched: KnowledgeEntry[]): KnowledgeEntry[] {
+export function nearestTopics(question: string, matched: KnowledgeEntry[]): KnowledgeEntry[] {
   if (matched.length > 0) return matched.slice(0, 3)
+
+  const near = scoreAll(question).slice(0, 3).map((m) => m.entry)
+  if (near.length > 0) return near
+
   return [
     KNOWLEDGE.find((e) => e.id === 'how-it-works'),
     KNOWLEDGE.find((e) => e.id === 'pay'),
@@ -190,7 +201,7 @@ export async function answerFor(
   const question = rawQuestion.trim().slice(0, MAX_QUESTION_LENGTH)
 
   const matched = retrieve(question, 3).map((m) => m.entry)
-  const related = relatedTo(matched)
+  const related = nearestTopics(question, matched)
   const hasModel = activeProviderName() !== 'template'
   const [thread, standing] = await Promise.all([recentThread(telegramId), standingOf(telegramId)])
   const previous = thread.length ? thread[thread.length - 1] : null

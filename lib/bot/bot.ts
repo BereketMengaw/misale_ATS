@@ -329,10 +329,21 @@ function register(bot: Bot) {
       return
     }
 
-    // No buttons here either. A menu under a reply reads as a phone tree, and
-    // that is as true of "I don't know" as of an answer — the way out of it is
-    // asking again, not picking from a list.
-    await reply(ctx, copy.answers.uncovered)
+    // "I don't know" is the one reply that has to offer a way on.
+    //
+    // This used to send no buttons, on the same reasoning as an answer: a menu
+    // under a reply reads as a phone tree. But the message itself recited four
+    // topics in prose — it was already a menu, just one nobody could tap, and
+    // it asked somebody who had already failed to find the words to find
+    // better ones. The topics nearest to what they actually asked, as buttons,
+    // and each is sent verbatim from the knowledge base so a tap costs no
+    // model call.
+    const nearest = new InlineKeyboard()
+    for (const entry of answered.related.slice(0, 3)) {
+      nearest.text(entry.topic, `ask:${entry.id}`).row()
+    }
+
+    await reply(ctx, copy.answers.uncovered, nearest)
     if (midRegistration) await reply(ctx, copy.answers.backToRegistration)
   })
 
