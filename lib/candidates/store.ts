@@ -1,6 +1,6 @@
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { completeness, type ProfileFields } from './completeness'
-import type { Availability } from './availability'
+import { splitAvailability, type Availability } from './availability'
 
 /** The wizard's answers, accumulated in bot_sessions until it finishes. */
 export type Draft = {
@@ -247,6 +247,56 @@ export async function attachFile(
 }
 
 /** Everything "My profile" shows. One read, no scoring. */
+/**
+ * The saved profile, back in the shape the wizard edits.
+ *
+ * Editing one field re-saves the whole row: `saveCandidate` writes every column
+ * and `saveDocuments` deletes before it inserts, so a draft holding only the
+ * field being changed would blank everything else. Nothing may call the edit
+ * flow without this.
+ */
+export async function loadDraft(telegramId: number): Promise<Draft | null> {
+  const db = supabaseAdmin()
+
+  const { data: c } = await db
+    .from('candidates')
+    .select('id, full_name, phone, gender, area, education, subjects, grades, availability, experience, expected_rate, cv_path, cv_name, cv_mime')
+    .eq('telegram_id', telegramId)
+    .maybeSingle()
+  if (!c) return null
+
+  const { data: docs } = await db
+    .from('candidate_documents')
+    .select('path, file_name, mime')
+    .eq('candidate_id', c.id)
+    .order('created_at', { ascending: true })
+
+  // The grid is stored day by day; the wizard asks days and times separately.
+  const { days, times } = splitAvailability((c.availability ?? {}) as Availability)
+
+  return {
+    fullName: c.full_name ?? undefined,
+    phone: c.phone ?? undefined,
+    gender: c.gender ?? undefined,
+    area: c.area ?? undefined,
+    education: c.education ?? undefined,
+    subjects: c.subjects ?? [],
+    grades: c.grades ?? [],
+    days,
+    times,
+    experience: c.experience ?? undefined,
+    expectedRate: c.expected_rate ? Number(c.expected_rate) : undefined,
+    cvPath: c.cv_path ?? undefined,
+    cvName: c.cv_name ?? undefined,
+    cvMime: c.cv_mime ?? undefined,
+    documents: (docs ?? []).map((d) => ({
+      path: d.path as string,
+      name: (d.file_name as string) ?? 'Document',
+      mime: (d.mime as string) ?? 'application/octet-stream',
+    })),
+  }
+}
+
 export async function candidateProfile(telegramId: number) {
   const { data } = await supabaseAdmin()
     .from('candidates')

@@ -88,3 +88,32 @@ export const TOTAL_STEPS = REGISTER_STEPS.length
 export function progress(step: RegisterStep): string {
   return `Step ${stepNumber(step)} of ${TOTAL_STEPS}`
 }
+
+/**
+ * What a registered tutor may change afterwards.
+ *
+ * Everything except consent, which is a thing they did rather than a value they
+ * hold — un-agreeing to storage is deleting the profile, not editing a field.
+ */
+export const EDITABLE_STEPS = REGISTER_STEPS.filter((s) => s !== 'consent')
+
+export function isEditable(step: string): step is RegisterStep {
+  return (EDITABLE_STEPS as readonly string[]).includes(step)
+}
+
+/** The word on the button that changes it. */
+export const EDIT_LABEL: Record<(typeof EDITABLE_STEPS)[number], string> = {
+  name: 'Name',
+  phone: 'Phone number',
+  gender: 'Gender',
+  area: 'Area',
+  education: 'Education',
+  subjects: 'Subjects',
+  grades: 'Grades',
+  days: 'Days',
+  times: 'Times',
+  experience: 'Experience',
+  rate: 'Expected rate',
+  cv: 'CV',
+  documents: 'Documents',
+}

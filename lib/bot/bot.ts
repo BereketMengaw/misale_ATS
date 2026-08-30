@@ -1,15 +1,16 @@
 import { Bot, type Context, type InlineKeyboard } from 'grammy'
 import { env } from '@/lib/env'
 import { copy } from './copy'
-import { applyKeyboard, backKeyboard, mainMenu, openJobsKeyboard, profileKeyboard, registerKeyboard } from './keyboards'
-import { getSession, saveSession } from './session'
+import { applyKeyboard, backKeyboard, editMenuKeyboard, mainMenu, openJobsKeyboard, profileKeyboard, registerKeyboard } from './keyboards'
+import { clearFlow, getSession, saveSession } from './session'
 import { logMessage } from './log'
 import { countApply, getJob, isLive, listOpenJobs } from './jobs'
 import { parseApplyPayload } from '@/lib/jobs/apply-link'
 import { parseAdminPayload, parseParentPayload } from '@/lib/messaging/connect'
 import { connectParent } from '@/lib/messaging/notify'
 import { parentBotCopy } from '@/lib/messaging/parent-bot'
-import { beginRegistration, handleRegisterCallback, handleRegisterMessage } from './flows/register'
+import { beginEdit, beginRegistration, handleRegisterCallback, handleRegisterMessage } from './flows/register'
+import { handlePayoutCallback, handlePayoutMessage, PAYOUT_FLOW, showPayoutDetails } from './flows/payout'
 import { applyToJob, candidateProfile, findCandidate } from '@/lib/candidates/store'
 import { DAYS, EDUCATION, EXPERIENCE, labelFor, SLOTS } from '@/lib/candidates/options'
 import { missingFields } from '@/lib/candidates/completeness'
@@ -17,6 +18,7 @@ import type { Availability } from '@/lib/candidates/availability'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { recordCommissionDecision } from '@/lib/hiring/service'
 import { markTalentApplied } from '@/lib/talent/service'
+import { isEditable } from './flows/steps'
 import { entryById } from './answers/knowledge'
 import { answerFor, looksLikeAQuestion } from './answers/service'
 import { detectIntent, isLeavingNotice } from './answers/intent'
@@ -155,6 +157,10 @@ function register(bot: Bot) {
 
   bot.callbackQuery('menu:main', async (ctx) => {
     await ctx.answerCallbackQuery()
+    // Leaving a half-answered flow has to actually leave it. Without this the
+    // next thing typed is still read as an account number.
+    const session = await getSession(ctx.from.id)
+    if (session?.flow === PAYOUT_FLOW) await clearFlow(ctx.from.id, ctx.chat!.id)
     await reply(ctx, copy.menu, mainMenu())
   })
 
@@ -163,9 +169,70 @@ function register(bot: Bot) {
     await showOpenJobs(ctx)
   })
 
+  /**
+   * Change one thing on a saved profile.
+   *
+   * Before this, the only way to fix a wrong answer was Register again — all
+   * fourteen steps, for one phone number. Each button below re-asks the
+   * wizard's own question for that one field.
+   */
+  bot.callbackQuery('menu:edit', async (ctx) => {
+    await ctx.answerCallbackQuery()
+
+    const existing = await findCandidate(ctx.from.id)
+    if (!existing) {
+      await reply(ctx, copy.edit.none, registerKeyboard())
+      return
+    }
+    await reply(ctx, copy.edit.title, editMenuKeyboard())
+  })
+
+  bot.callbackQuery(/^edit:([a-z]+)$/, async (ctx) => {
+    await ctx.answerCallbackQuery()
+    const step = ctx.match![1]
+
+    if (!isEditable(step)) {
+      await reply(ctx, copy.notReadyYet, backKeyboard())
+      return
+    }
+    // A profile that vanished between the menu and the tap.
+    if (!(await beginEdit(ctx, step))) {
+      await reply(ctx, copy.edit.none, registerKeyboard())
+    }
+  })
+
   bot.callbackQuery('menu:profile', async (ctx) => {
     await ctx.answerCallbackQuery()
     await showProfile(ctx)
+  })
+
+  // Where a hired tutor is paid. Everyone else is told there is nothing to set
+  // yet — better than storing bank details for a job that does not exist.
+  bot.callbackQuery('menu:payout', async (ctx) => {
+    await ctx.answerCallbackQuery()
+
+    const candidate = await findCandidate(ctx.from.id)
+    if (!candidate) {
+      await reply(ctx, copy.payout.notRegistered, registerKeyboard())
+      return
+    }
+
+    const { count } = await supabaseAdmin()
+      .from('placements')
+      .select('id', { count: 'exact', head: true })
+      .eq('candidate_id', candidate.id)
+
+    if (!count) {
+      await reply(ctx, copy.payout.notHiredYet, backKeyboard())
+      return
+    }
+
+    await showPayoutDetails(ctx, candidate.id)
+  })
+
+  bot.callbackQuery(/^payout:(.+)$/, async (ctx) => {
+    if (await handlePayoutCallback(ctx, ctx.match![1])) return
+    await ctx.answerCallbackQuery({ text: copy.reg.staleTap })
   })
 
   bot.callbackQuery('menu:faq', async (ctx) => {
@@ -195,6 +262,9 @@ function register(bot: Bot) {
   // asked to interpret it, which is the rule that matters.
   bot.on('message', async (ctx) => {
     if (await handleRegisterMessage(ctx)) return
+    // An account number is digits, not a question. Checked before the answerer
+    // so it is never sent to a model or met with "I can't answer that".
+    if (await handlePayoutMessage(ctx)) return
 
     // A parent gets Amharic. The answerer is English and tutor-facing, so a
     // parent still gets the fixed line rather than an answer in the wrong

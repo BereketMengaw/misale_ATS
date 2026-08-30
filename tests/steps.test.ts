@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { nextStep, ownsStep, prevStep, progress, REGISTER_STEPS, stepNumber, STEP_FIELD, STEP_LABEL, TOTAL_STEPS } from '@/lib/bot/flows/steps'
+import {
+  EDIT_LABEL, EDITABLE_STEPS, isEditable, nextStep, ownsStep, prevStep, progress,
+  REGISTER_STEPS, stepNumber, STEP_FIELD, STEP_LABEL, TOTAL_STEPS,
+} from '@/lib/bot/flows/steps'
 
 describe('wizard steps', () => {
   it('walks from the first step to the last without a gap', () => {
@@ -77,5 +80,31 @@ describe('the number of steps, as the bot states it', () => {
     const words = ['Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen']
     const said = KNOWLEDGE.find((e) => e.id === 'registration-time')!.answer
     expect(said).toContain(words[TOTAL_STEPS - 10])
+  })
+})
+
+/**
+ * Editing reuses the wizard's own questions, so the two lists have to stay in
+ * step. A field added to registration and forgotten here is a field nobody can
+ * ever correct.
+ */
+describe('what can be changed afterwards', () => {
+  it('offers every step except consent', () => {
+    expect(EDITABLE_STEPS).toEqual(REGISTER_STEPS.filter((s) => s !== 'consent'))
+    expect(EDITABLE_STEPS).not.toContain('consent')
+  })
+
+  it('has a button label for every one of them', () => {
+    for (const step of EDITABLE_STEPS) {
+      expect(EDIT_LABEL[step], step).toBeTruthy()
+    }
+    expect(Object.keys(EDIT_LABEL).sort()).toEqual([...EDITABLE_STEPS].sort())
+  })
+
+  it('accepts only a real step', () => {
+    for (const step of EDITABLE_STEPS) expect(isEditable(step)).toBe(true)
+    for (const junk of ['consent', 'payout', '', 'name; drop table']) {
+      expect(isEditable(junk), junk).toBe(false)
+    }
   })
 })

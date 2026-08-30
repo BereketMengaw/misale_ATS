@@ -165,7 +165,7 @@ export const copy = {
     cvNo: 'not sent',
     complete: 'Nothing missing.',
     gaps: (list: string) => `Still missing: ${list}.`,
-    fix: 'Registering again replaces what is here.',
+    fix: 'Anything here can be changed — tap Change something.',
   },
 
   /**
@@ -191,6 +191,38 @@ export const copy = {
     'Yes — type it and I will answer. No person reads this chat, so nothing you send is passed on and nobody will call you back. Anything that actually happens here happens through a button.',
   ].join('\n'),
 
+  /**
+   * Changing something already saved.
+   *
+   * Until this existed the only way to correct a profile was Register again —
+   * fourteen steps to fix one wrong phone number, which is why so few were ever
+   * corrected. Nothing here queues anything for a person to read.
+   */
+  edit: {
+    title: 'What do you want to change?',
+    none: 'There is no profile to change yet. Register first and everything on it can be edited afterwards.',
+    saved: (field: string) => `${field} updated. Anything else?`,
+    cv: 'Send your CV as a file or a photo and it replaces the one we have. Tap Back to leave it as it is.',
+    documents: (n: number) =>
+      n === 0
+        ? 'Send any degree or transcript as a file or a photo.'
+        : `You have sent ${n} ${n === 1 ? 'document' : 'documents'}. Send more to add to them, or keep what you have.`,
+    documentsKept: 'Left as they were.',
+    failed: 'That did not save. Try it once more, and nothing already on your profile has changed.',
+    done: 'Nothing else changed.',
+  },
+
+  /**
+   * Where a tutor is paid. Both lines below end the matter: neither offers a
+   * person, a number to call, or a promise that anyone will follow up.
+   */
+  payout: {
+    notRegistered:
+      'There is nothing to pay into yet — you have no profile. Register first, and I will ask for your account when you are hired.',
+    notHiredYet:
+      'Nothing to set yet. I ask for your account at the point you are hired, so there is no reason to hand over bank details before then.',
+  },
+
   buttons: {
     openJobs: 'Open jobs',
     register: 'Register as a tutor',
@@ -207,6 +239,9 @@ export const copy = {
     skip: 'Skip this',
     other: 'Somewhere else',
     back: '← Back',
-    registerAgain: 'Register again',
+    payoutDetails: 'Payment details',
+    editProfile: 'Change something',
+    doneEditing: 'Done — show my profile',
+    keepMine: 'Keep what I have',
   },
 } as const

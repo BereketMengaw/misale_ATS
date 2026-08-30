@@ -37,3 +37,23 @@ export function summarise(current: Availability, dayLabels: Record<string, strin
   if (days.length === 0) return 'Not set'
   return days.map((d) => `${dayLabels[d] ?? d} (${(current[d] ?? []).length})`).join(', ')
 }
+
+/**
+ * The grid taken back apart into the two answers that built it. PURE.
+ *
+ * The wizard asks days and times separately and `draftAvailability` writes the
+ * same times to every chosen day. Editing has to reverse that: a tutor changing
+ * their area must get their existing days and times back exactly, because the
+ * whole draft is written on save and anything this drops is silently erased.
+ *
+ * Days keep the grid's own order. Times are the union across days — with a
+ * grid this function's own writer produced, every day holds the same set, so
+ * the union is that set. A grid edited elsewhere may not, and taking the union
+ * rather than one day's slots is what stops an edit narrowing somebody's
+ * availability behind their back.
+ */
+export function splitAvailability(current: Availability): { days: string[]; times: string[] } {
+  const days = availableDays(current)
+  const times = [...new Set(days.flatMap((d) => current[d] ?? []))].sort()
+  return { days, times }
+}

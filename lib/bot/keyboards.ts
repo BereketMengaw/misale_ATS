@@ -1,5 +1,6 @@
 import { InlineKeyboard } from 'grammy'
 import { copy } from './copy'
+import { EDIT_LABEL, EDITABLE_STEPS } from './flows/steps'
 import { jobLabel, type OpenJob } from './jobs'
 
 /**
@@ -16,6 +17,10 @@ export function mainMenu(): InlineKeyboard {
     .row()
     .text(b.myProfile, 'menu:profile')
     .text(b.faq, 'menu:faq')
+    .row()
+    // Where a hired tutor is paid. Harmless for everyone else: the flow says
+    // so and stops, rather than storing an account for a job nobody has.
+    .text(b.payoutDetails, 'menu:payout')
 }
 
 /** Anywhere that has nothing to do but go back. */
@@ -34,10 +39,29 @@ export function registerKeyboard(): InlineKeyboard {
 /** A profile that exists: read it, or replace it. */
 export function profileKeyboard(): InlineKeyboard {
   return new InlineKeyboard()
-    .text(copy.buttons.registerAgain, 'menu:register')
+    // Editing comes first, and Register again is gone: it was the only way to
+    // fix a wrong answer, and it meant re-doing all fourteen steps.
+    .text(copy.buttons.editProfile, 'menu:edit')
+    .row()
+    .text(copy.buttons.payoutDetails, 'menu:payout')
     .row()
     .text(copy.buttons.openJobs, 'menu:jobs')
     .text(copy.buttons.backToMenu, 'menu:main')
+}
+
+/**
+ * One button per changeable field, two to a row.
+ *
+ * Every one of them re-asks the wizard's own question, so a tutor changing
+ * their area sees exactly the buttons they saw when they registered.
+ */
+export function editMenuKeyboard(): InlineKeyboard {
+  const kb = new InlineKeyboard()
+  EDITABLE_STEPS.forEach((step, i) => {
+    kb.text(EDIT_LABEL[step], `edit:${step}`)
+    if ((i + 1) % 2 === 0) kb.row()
+  })
+  return kb.row().text(copy.buttons.doneEditing, 'menu:profile')
 }
 
 /** After arriving on a job deep link. One button forward, one back. */

@@ -4,11 +4,12 @@ import { getSession, saveSession } from '../session'
 import { logMessage } from '../log'
 import { getJob } from '../jobs'
 import { nextStep, ownsStep, prevStep, progress, STEP_LABEL, type RegisterStep } from './steps'
+import { editMenuKeyboard } from '../keyboards'
 import {
   DAYS, DEFAULT_AREAS, ALL_SUBJECTS, SUBJECT_CHOICES, EDUCATION, EXPERIENCE,
   GENDERS, GRADE_BANDS, labelFor, RATE_BANDS, SLOTS, type Option,
 } from '@/lib/candidates/options'
-import { applyToJob, saveCandidate, saveDocuments, storeCv, storeDocument, type Draft } from '@/lib/candidates/store'
+import { applyToJob, loadDraft, saveCandidate, saveDocuments, storeCv, storeDocument, type Draft } from '@/lib/candidates/store'
 import { ACCEPTED_MIME, MAX_UPLOAD_BYTES } from '@/lib/candidates/files'
 import { normalizePhone, phoneProblem } from '@/lib/candidates/phone'
 import { markTalentApplied } from '@/lib/talent/service'
@@ -19,13 +20,24 @@ import { env } from '@/lib/env'
 const MAX_CV_BYTES = MAX_UPLOAD_BYTES
 const CV_MIME = ACCEPTED_MIME
 
-type Sess = { draft: Draft; jobId?: number; publicationId?: number | null }
+type Sess = {
+  draft: Draft
+  jobId?: number
+  publicationId?: number | null
+  /**
+   * Changing one field on a profile that already exists, rather than filling a
+   * new one in. Same questions, same validation, same buttons — the only
+   * difference is that answering ends the flow instead of advancing it.
+   */
+  editing?: boolean
+}
 
 function sessionOf(data: Record<string, unknown>): Sess {
   return {
     draft: (data.draft as Draft) ?? {},
     jobId: data.jobId as number | undefined,
     publicationId: (data.publicationId as number | null | undefined) ?? null,
+    editing: data.editing === true,
   }
 }
 
@@ -63,13 +75,21 @@ async function say(ctx: Context, text: string, keyboard?: InlineKeyboard | Keybo
 /** A step's prompt: the words, and whichever kind of keyboard it needs. */
 type Prompt = { text: string; inline?: InlineKeyboard; reply?: Keyboard }
 
-/** Every step that has somewhere to go back to gets a way back. */
-function withBack(kb: InlineKeyboard, step: RegisterStep): InlineKeyboard {
+/**
+ * Every step that has somewhere to go back to gets a way back.
+ *
+ * Mid-registration that is the previous question. Mid-edit there is no previous
+ * question — back means the list of things they can change.
+ */
+function withBack(kb: InlineKeyboard, step: RegisterStep, editing = false): InlineKeyboard {
+  if (editing) return kb.row().text(copy.buttons.back, 'reg:nav:editmenu')
   return prevStep(step) ? kb.row().text(copy.buttons.back, 'reg:nav:back') : kb
 }
 
-function promptFor(ctx: Context, step: RegisterStep, draft: Draft): Prompt {
-  const head = `${progress(step)}\n\n`
+function promptFor(ctx: Context, step: RegisterStep, draft: Draft, editing = false): Prompt {
+  // "Step 4 of 14" is a promise about how much is left. Changing one field is
+  // not step 4 of anything, and saying so would be a lie about the work ahead.
+  const head = editing ? '' : `${progress(step)}\n\n`
 
   switch (step) {
     case 'consent':
@@ -82,7 +102,7 @@ function promptFor(ctx: Context, step: RegisterStep, draft: Draft): Prompt {
 
     case 'name': {
       const guess = [ctx.from?.first_name, ctx.from?.last_name].filter(Boolean).join(' ').trim()
-      if (!guess) return { text: head + copy.reg.nameTypeIt, inline: withBack(new InlineKeyboard(), 'name') }
+      if (!guess) return { text: head + copy.reg.nameTypeIt, inline: withBack(new InlineKeyboard(), 'name', editing) }
       return {
         text: head + copy.reg.name(guess),
         inline: withBack(
@@ -90,6 +110,7 @@ function promptFor(ctx: Context, step: RegisterStep, draft: Draft): Prompt {
             .text(copy.buttons.nameYes, 'reg:name:keep').row()
             .text(copy.buttons.nameNo, 'reg:name:type'),
           'name',
+          editing,
         ),
       }
     }
@@ -102,7 +123,7 @@ function promptFor(ctx: Context, step: RegisterStep, draft: Draft): Prompt {
       }
 
     case 'gender':
-      return { text: head + copy.reg.gender, inline: withBack(singleSelect(GENDERS, 'reg:gender'), step) }
+      return { text: head + copy.reg.gender, inline: withBack(singleSelect(GENDERS, 'reg:gender'), step, editing) }
 
     case 'area':
       return {
@@ -110,69 +131,70 @@ function promptFor(ctx: Context, step: RegisterStep, draft: Draft): Prompt {
         inline: withBack(singleSelect(
           [...DEFAULT_AREAS.map((a) => ({ value: a, label: a })), { value: '__other', label: copy.buttons.other }],
           'reg:area',
-        ), step),
+        ), step, editing),
       }
 
     case 'education':
-      return { text: head + copy.reg.education, inline: withBack(singleSelect(EDUCATION, 'reg:education'), step) }
+      return { text: head + copy.reg.education, inline: withBack(singleSelect(EDUCATION, 'reg:education'), step, editing) }
 
     case 'subjects':
       return {
         text: head + copy.reg.subjects,
         inline: withBack(multiSelect(
           SUBJECT_CHOICES.map((x) => ({ value: x, label: x })), draft.subjects ?? [], 'reg:subject',
-        ), step),
+        ), step, editing),
       }
 
     case 'grades':
-      return { text: head + copy.reg.grades, inline: withBack(multiSelect(GRADE_BANDS, draft.grades ?? [], 'reg:grade'), step) }
+      return { text: head + copy.reg.grades, inline: withBack(multiSelect(GRADE_BANDS, draft.grades ?? [], 'reg:grade'), step, editing) }
 
     case 'days':
-      return { text: head + copy.reg.days, inline: withBack(multiSelect(DAYS, draft.days ?? [], 'reg:day', 4), step) }
+      return { text: head + copy.reg.days, inline: withBack(multiSelect(DAYS, draft.days ?? [], 'reg:day', 4), step, editing) }
 
     case 'times':
-      return { text: head + copy.reg.times, inline: withBack(multiSelect(SLOTS, draft.times ?? [], 'reg:time', 3), step) }
+      return { text: head + copy.reg.times, inline: withBack(multiSelect(SLOTS, draft.times ?? [], 'reg:time', 3), step, editing) }
 
     case 'experience':
-      return { text: head + copy.reg.experience, inline: withBack(singleSelect(EXPERIENCE, 'reg:experience', 1), step) }
+      return { text: head + copy.reg.experience, inline: withBack(singleSelect(EXPERIENCE, 'reg:experience', 1), step, editing) }
 
     case 'rate':
-      return { text: head + copy.reg.rate, inline: withBack(singleSelect(RATE_BANDS, 'reg:rate', 1), step) }
+      return { text: head + copy.reg.rate, inline: withBack(singleSelect(RATE_BANDS, 'reg:rate', 1), step, editing) }
 
     case 'cv':
       return {
-        text: head + copy.reg.cv,
-        inline: withBack(new InlineKeyboard().text(copy.buttons.skip, 'reg:cv:skip'), step),
+        text: head + (editing ? copy.edit.cv : copy.reg.cv),
+        inline: withBack(new InlineKeyboard().text(copy.buttons.skip, 'reg:cv:skip'), step, editing),
       }
 
     case 'documents':
       return {
-        text: head + copy.reg.documents,
+        text: head + (editing ? copy.edit.documents(draft.documents?.length ?? 0) : copy.reg.documents),
         inline: withBack(
           new InlineKeyboard()
             .text(copy.buttons.done, 'reg:document:__done')
-            .text(copy.buttons.skip, 'reg:document:skip'),
+            .text(editing ? copy.buttons.keepMine : copy.buttons.skip, 'reg:document:skip'),
           step,
+          editing,
         ),
       }
   }
 }
 
 /** Ask one step. Every prompt carries "Step n of 13" so the end is visible. */
-export async function askStep(ctx: Context, step: RegisterStep, draft: Draft) {
-  const prompt = promptFor(ctx, step, draft)
+export async function askStep(ctx: Context, step: RegisterStep, draft: Draft, editing = false) {
+  const prompt = promptFor(ctx, step, draft, editing)
   return say(ctx, prompt.text, prompt.inline ?? prompt.reply)
 }
 
 /** Re-draw the tapped message instead of adding another one below it. */
-async function askStepInPlace(ctx: Context, step: RegisterStep, draft: Draft) {
-  const prompt = promptFor(ctx, step, draft)
+async function askStepInPlace(ctx: Context, step: RegisterStep, draft: Draft, editing = false) {
+  const prompt = promptFor(ctx, step, draft, editing)
   // A reply keyboard cannot be edited into an existing message.
-  if (!prompt.inline) return askStep(ctx, step, draft)
+  if (!prompt.inline) return askStep(ctx, step, draft, editing)
   try {
     await ctx.editMessageText(prompt.text, { reply_markup: prompt.inline })
   } catch {
-    await askStep(ctx, step, draft)
+    await askStep(ctx, step, draft, editing)
   }
 }
 
@@ -211,17 +233,60 @@ async function settle(ctx: Context, step: RegisterStep, draft: Draft) {
   await ctx.editMessageText(answerLine(step, draft)).catch(() => {})
 }
 
-/** Move to the next step, or finish. */
+/** Move to the next step, or finish. Editing has no next step. */
 async function advance(ctx: Context, step: RegisterStep, sess: Sess) {
   await settle(ctx, step, sess.draft)
   const telegramId = ctx.from!.id
   const chatId = ctx.chat!.id
-  const next = nextStep(step)
 
+  if (sess.editing) return saveEdit(ctx, step, sess)
+
+  const next = nextStep(step)
   if (!next) return finish(ctx, sess)
 
   await saveSession(telegramId, chatId, { flow: 'register', step: next, data: { draft: sess.draft } })
   await askStep(ctx, next, sess.draft)
+}
+
+/**
+ * One field changed on a profile that already exists.
+ *
+ * The whole draft is written back, not the one field: `saveCandidate` writes
+ * every column and `saveDocuments` deletes before inserting, so a partial draft
+ * would blank everything the tutor did not just re-answer. `loadDraft` filled
+ * it before the question was asked, which is what makes this safe.
+ */
+async function saveEdit(ctx: Context, step: RegisterStep, sess: Sess) {
+  const telegramId = ctx.from!.id
+  const chatId = ctx.chat!.id
+
+  const saved = await saveCandidate(telegramId, chatId, sess.draft)
+  if (!saved) {
+    await say(ctx, copy.edit.failed)
+    return
+  }
+  await saveDocuments(saved.id, sess.draft.documents ?? [])
+
+  await saveSession(telegramId, chatId, { flow: null, step: null, data: { draft: {}, editing: false } })
+  await say(ctx, copy.edit.saved(STEP_LABEL[step]), editMenuKeyboard())
+}
+
+/**
+ * Change one thing. Everything the wizard already knows how to ask is reused —
+ * the same prompt, the same buttons, the same validation — so there is one
+ * definition of each question rather than a second, drifting copy.
+ */
+export async function beginEdit(ctx: Context, step: RegisterStep): Promise<boolean> {
+  const draft = await loadDraft(ctx.from!.id)
+  if (!draft) return false
+
+  await saveSession(ctx.from!.id, ctx.chat!.id, {
+    flow: 'register',
+    step,
+    data: { draft, editing: true, jobId: undefined, publicationId: null },
+  })
+  await askStep(ctx, step, draft, true)
+  return true
 }
 
 async function finish(ctx: Context, sess: Sess) {
@@ -276,6 +341,16 @@ export async function handleRegisterCallback(ctx: Context, field: string, value:
   // One step back, redrawn in place.
   if (field === 'nav') {
     await ctx.answerCallbackQuery()
+
+    // Mid-edit there is no previous question — back is the list of fields.
+    if (value === 'editmenu' || sess.editing) {
+      await saveSession(ctx.from!.id, ctx.chat!.id, { flow: null, step: null, data: { draft: {}, editing: false } })
+      await ctx.editMessageText(copy.edit.title, { reply_markup: editMenuKeyboard() }).catch(async () => {
+        await say(ctx, copy.edit.title, editMenuKeyboard())
+      })
+      return true
+    }
+
     const back = prevStep(step)
     if (!back) return true
     await saveSession(ctx.from!.id, ctx.chat!.id, { flow: 'register', step: back, data: { draft } })
@@ -350,10 +425,14 @@ export async function handleRegisterCallback(ctx: Context, field: string, value:
     // ---- educational documents: several files, then Done ----
     case 'document':
       if (value === 'skip') {
-        draft.documents = []
+        // Mid-registration, skipping means "I have none". Mid-edit it means
+        // "leave mine alone" — clearing the draft here would delete every
+        // document they ever sent, because saveDocuments deletes before it
+        // inserts. Two different meanings for one button, so it says so.
+        if (!sess.editing) draft.documents = []
         await save()
         await ctx.answerCallbackQuery()
-        await say(ctx, copy.reg.documentsSkipped)
+        await say(ctx, sess.editing ? copy.edit.documentsKept : copy.reg.documentsSkipped)
         await advance(ctx, 'documents', sess)
         return true
       }
@@ -404,7 +483,7 @@ export async function handleRegisterCallback(ctx: Context, field: string, value:
         : SLOTS
       const perRow = field === 'day' ? 4 : field === 'time' ? 3 : 2
       await ctx.editMessageReplyMarkup({
-        reply_markup: withBack(multiSelect(options, draft[key] ?? [], `reg:${field}`, perRow), step),
+        reply_markup: withBack(multiSelect(options, draft[key] ?? [], `reg:${field}`, perRow), step, sess.editing),
       })
       return true
     }
