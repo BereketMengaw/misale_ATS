@@ -9,7 +9,9 @@ import { Button } from '@/components/ui/button'
 import { buttonClass } from '@/components/ui/styles'
 import { CopyBox } from '@/components/ui/copy-box'
 import { ChannelForm } from './channel-form'
+import { PayInForm } from './pay-in-form'
 import { addDiscoveredChannel, recheckChannel, setChannelActive, setContactRelease } from './actions'
+import { hasSomewhereToPay, paymentDetails } from '@/lib/settings/payment-details'
 
 export const dynamic = 'force-dynamic'
 
@@ -21,7 +23,7 @@ export const dynamic = 'force-dynamic'
 export default async function SettingsPage() {
   const db = supabaseAdmin()
 
-  const [{ data: channels, error }, discovered, health, myPhone, messages, { data: release }] = await Promise.all([
+  const [{ data: channels, error }, discovered, health, myPhone, messages, { data: release }, payIn] = await Promise.all([
     db.from('channels').select('*').order('created_at', { ascending: true }),
     discoveredChats(),
     botHealth(),
@@ -32,6 +34,7 @@ export default async function SettingsPage() {
       .order('created_at', { ascending: false })
       .limit(10),
     db.from('settings').select('value').eq('key', 'contact_release').maybeSingle(),
+    paymentDetails(),
   ])
 
   const rule = (release?.value as { rule?: string } | null)?.rule ?? 'after_first_payment'
@@ -42,6 +45,21 @@ export default async function SettingsPage() {
   return (
     <PageShell width="narrow">
       <PageHeader title="Settings" subtitle="Where jobs get posted, and whether the bot is alive." />
+
+      {/* Nothing in the app can ask for money until this is filled in. */}
+      <Card className="p-4">
+        <CardHead title="Payment details" />
+        <p className="mt-1 text-xs text-neutral-500">
+          Where families send invoices, and where tutors send their pre-payment.
+        </p>
+        {!hasSomewhereToPay(payIn) && (
+          <p className="mt-1 text-sm text-red-700">
+            Not set. Invoices are going out with an amount, a reference and no account to send it
+            to, and no tutor can be asked for their pre-payment.
+          </p>
+        )}
+        <PayInForm details={payIn} />
+      </Card>
 
       {myPhone && (
         <Card className="p-4">

@@ -39,21 +39,38 @@ export function introductionAm(
   return lines.join('\n')
 }
 
-/** The invoice. The reference code is what makes the payment match itself. */
-export function invoiceAm(amountEtb: string, reference: string, dueLabel: string): string {
+/**
+ * The invoice. The reference code is what makes the payment match itself.
+ *
+ * `payInto` is the account to send the money to — one account, already
+ * formatted, from `payIntoSms`. Until it was added, this message carried an
+ * amount, a code and a deadline, and never said where to pay: a bill with no
+ * payee. The unchecked box in docs/07-setup-checklist.md, before step 10.
+ *
+ * Optional because a half-configured agency must still be able to bill; the
+ * dashboard warns rather than blocking, and the message loses one line.
+ */
+export function invoiceAm(
+  amountEtb: string,
+  reference: string,
+  dueLabel: string,
+  payInto?: string | null,
+): string {
   return [
     `${AGENCY_NAME_AM}፦ የዚህ ወር ክፍያ ${amountEtb} ብር ነው።`,
     `ማመሳከሪያ፦ ${reference}`,
     'ሲከፍሉ ይህን ኮድ በምክንያት ቦታ ላይ ይጻፉ።',
+    ...(payInto ? [`ወደ፦ ${payInto}`] : []),
     `የመክፈያ ቀን፦ ${dueLabel}`,
   ].join('\n')
 }
 
 /** The chase, when a due date passes. Firm, not rude. */
-export function overdueAm(amountEtb: string, reference: string): string {
+export function overdueAm(amountEtb: string, reference: string, payInto?: string | null): string {
   return [
     `${AGENCY_NAME_AM}፦ ${amountEtb} ብር ክፍያ ገና አልደረሰንም።`,
     `ማመሳከሪያ፦ ${reference}`,
+    ...(payInto ? [`ወደ፦ ${payInto}`] : []),
     'ከከፈሉ ይህን መልእክት ችላ ይበሉት።',
   ].join('\n')
 }

@@ -70,3 +70,59 @@ export async function payTutor(formData: FormData): Promise<void> {
   revalidatePath('/dashboard/money')
   revalidatePath('/dashboard')
 }
+
+// ---------------------------------------------------------------------------
+// The tutor's pre-payment
+// ---------------------------------------------------------------------------
+
+/**
+ * Send the tutor the figure, the account and their code — or chase it.
+ *
+ * Silently does nothing when no account is configured. The page checks the same
+ * condition and hides the button behind a warning, so this is the backstop
+ * rather than the message: a request for money that cannot say where it goes
+ * must not leave the building.
+ */
+export async function askPrepayment(formData: FormData): Promise<void> {
+  const prepaymentId = Number(formData.get('prepaymentId'))
+  const chase = formData.get('chase') === '1'
+  if (!prepaymentId) return
+
+  const { notifyPrepayment } = await import('@/lib/prepayments/service')
+  await notifyPrepayment(prepaymentId, chase)
+  revalidatePath('/dashboard/money')
+  revalidatePath('/dashboard')
+}
+
+export async function markPrepaymentSettled(formData: FormData): Promise<void> {
+  const prepaymentId = Number(formData.get('prepaymentId'))
+  if (!prepaymentId) return
+
+  const { markPrepaymentPaid } = await import('@/lib/prepayments/service')
+  await markPrepaymentPaid(prepaymentId, 'operator')
+  revalidatePath('/dashboard/money')
+  revalidatePath('/dashboard')
+}
+
+/** Not owed after all. Recorded, not deleted — the books still explain themselves. */
+export async function waiveCharge(formData: FormData): Promise<void> {
+  const prepaymentId = Number(formData.get('prepaymentId'))
+  if (!prepaymentId) return
+
+  const { waivePrepayment } = await import('@/lib/prepayments/service')
+  await waivePrepayment(prepaymentId, 'waived by the operator')
+  revalidatePath('/dashboard/money')
+  revalidatePath('/dashboard')
+}
+
+/** Attach an unmatched payment to a tutor's pre-payment instead of an invoice. */
+export async function attachToPrepayment(formData: FormData): Promise<void> {
+  const paymentId = Number(formData.get('paymentId'))
+  const prepaymentId = Number(formData.get('prepaymentId'))
+  if (!paymentId || !prepaymentId) return
+
+  const { attachPaymentToPrepayment } = await import('@/lib/prepayments/service')
+  await attachPaymentToPrepayment(paymentId, prepaymentId)
+  revalidatePath('/dashboard/money')
+  revalidatePath('/dashboard')
+}

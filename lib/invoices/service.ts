@@ -117,12 +117,15 @@ export async function queueInvoiceMessage(invoiceId: number, chase = false): Pro
     .maybeSingle()
   if (!inv) return false
 
-  const client = inv.clients as unknown as { full_name: string; phone: string | null } | null
   const amount = formatEtb(Number(inv.gross_cents))
 
+  // Where to send it. A bill that does not say this is not a bill.
+  const { paymentDetails, payIntoSms } = await import('@/lib/settings/payment-details')
+  const payInto = payIntoSms(await paymentDetails())
+
   const body = chase
-    ? overdueAm(amount, inv.reference)
-    : invoiceAm(amount, inv.reference, formatDateAm(new Date(`${inv.due_on}T00:00:00Z`)))
+    ? overdueAm(amount, inv.reference, payInto)
+    : invoiceAm(amount, inv.reference, formatDateAm(new Date(`${inv.due_on}T00:00:00Z`)), payInto)
 
   // Telegram if the parent has connected, the send queue if not.
   const { notifyClient } = await import('@/lib/messaging/notify')

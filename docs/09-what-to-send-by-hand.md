@@ -18,6 +18,12 @@ Three things are wrong with it now.
 non-negotiable rule forbids: a message that routes a person to a human
 expecting a reply. It has been sent to 268 people.
 
+Worth being honest about what the detail *was*: the account number. There was
+nowhere else to get it, so the phone call was load-bearing rather than lazy.
+Step 13 put the account in `settings.payment_details` and into the message the
+bot sends at the hire, which is what makes the call unnecessary. The rule is
+satisfied by answering the question, not by refusing to.
+
 **Option 2 no longer exists** — see `docs/08-retired-commission-option.md`.
 
 **The deadline was vague.** "Before your first salary" is right; the two-week
@@ -28,6 +34,17 @@ same thing at the shortlist with the arithmetic already done — 4,800 ETB rathe
 than "20% of your salary" — and with Accept and Decline as buttons rather than
 "if you agree with let we know". Nobody has to work anything out, and nobody
 has to be read by a person.
+
+## Stop sending the account number by hand
+
+It is in **Settings → Payment details** now, and the bot sends it with the
+figure, the deadline and a `TUT-` code at the hire. A tutor who loses that
+message taps **Payment details** in the menu and it arrives again; a tutor who
+asks in words gets the same pointer out of `knowledge.ts`.
+
+Sending it by hand costs the code, and the code is the only thing that makes
+the payment match itself. A pre-payment that arrives without one lands in the
+Unmatched inbox to be attached by hand.
 
 ## If somebody has to be messaged before that
 
@@ -41,7 +58,8 @@ Short, and pointing at the thing that answers:
 > There is also a one-off pre-payment equal to one period of that fee, due
 > within two weeks of meeting the family and before your first salary.
 >
-> You will see the exact figures here before you are asked to accept anything.
+> You will see the exact figures here before you are asked to accept anything,
+> and the account to send it to when it falls due.
 > Any question, type it here and you will get an answer.
 
 ## The welcome and the group links

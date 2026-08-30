@@ -30,7 +30,10 @@ Things only the operator can do. None block step 1, but the earlier they are don
 ## Before step 10 (invoices)
 
 - [ ] **Billing rhythm** — monthly, every 8 lessons, or per lesson.
-- [ ] **Payment details** the parent needs: account number and name to pay into.
+- [ ] **Payment details** — the account number and name to pay into, entered under
+      **Settings → Payment details**. This is the one item on this list that silently breaks
+      something: until it is filled in, every invoice goes out naming an amount and no payee, and
+      no tutor can be asked for their pre-payment. Both screens warn while it is empty.
 
 ## Before step 11 (payment matching)
 
@@ -40,6 +43,11 @@ Things only the operator can do. None block step 1, but the earlier they are don
 - [ ] **A few real payment SMS** — Telebirr and CBE — for the parser fixtures.
 - [ ] **Gateway app** installed (`android-sms-gateway` by capcom6), battery optimisation turned off
       for it.
+
+## Before step 13 (the tutor's side)
+
+- [ ] Nothing to gather. The bot asks each tutor where they want to be paid at the point they are
+      hired, and the pre-payment is raised from figures already agreed.
 
 ## Not needed
 

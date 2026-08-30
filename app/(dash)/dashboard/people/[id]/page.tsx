@@ -4,8 +4,12 @@ import { supabaseAdmin } from '@/lib/supabase/admin'
 import { DAYS, EDUCATION, EXPERIENCE, GENDERS, labelFor, SLOTS } from '@/lib/candidates/options'
 import { missingFields } from '@/lib/candidates/completeness'
 import type { Availability } from '@/lib/candidates/availability'
-import { applicationLabel } from '@/lib/ui/labels'
+import { applicationLabel, prepaymentLabel } from '@/lib/ui/labels'
 import { Badge, Card, CardHead, Meter, PageHeader, PageShell } from '@/components/ui'
+import { isPayable, providerLabel, type PayoutProvider } from '@/lib/candidates/payout-details'
+import { prepaymentStage } from '@/lib/money/prepayment'
+import { formatEtb } from '@/lib/money/commission'
+import { DestinationForm } from './destination-form'
 
 export const dynamic = 'force-dynamic'
 
@@ -48,6 +52,30 @@ export default async function TutorPage({ params }: { params: Promise<{ id: stri
       name: (row.file_name as string) ?? 'Document',
       url: data?.signedUrl ?? null,
     })
+  }
+
+  // Their side of the money: where they are paid, and what they owe up front.
+  const [{ data: prepayments }, { data: payouts }] = await Promise.all([
+    db
+      .from('prepayments')
+      .select('id, amount_cents, reference, status, due_on, notified_at, paid_at')
+      .eq('candidate_id', c.id)
+      .order('due_on'),
+    db
+      .from('payouts')
+      .select('id, net_cents, status')
+      .eq('candidate_id', c.id),
+  ])
+
+  const now = new Date()
+  const owedToThem = (payouts ?? [])
+    .filter((p) => p.status === 'due')
+    .reduce((t, p) => t + Number(p.net_cents), 0)
+
+  const destination = {
+    provider: (c.payout_provider ?? null) as PayoutProvider | null,
+    account: (c.payout_account ?? null) as string | null,
+    name: (c.payout_name ?? null) as string | null,
   }
 
   const availability = (c.availability ?? {}) as Availability
@@ -137,6 +165,70 @@ export default async function TutorPage({ params }: { params: Promise<{ id: stri
             ))}
           </ul>
         )}
+      </Card>
+
+      {/* Where the money goes, and what they owe. The account is shown in full
+          rather than masked: this is the page the operator copies it from to
+          make the transfer, and a masked number cannot be copied. */}
+      <Card className="p-4">
+        <CardHead title="Money" className="mb-2" />
+
+        {isPayable(destination) ? (
+          <>
+            <Row label="Paid into" value={`${providerLabel(destination.provider)} ${destination.account}`} />
+            <Row label="Name on the account" value={destination.name ?? '—'} />
+          </>
+        ) : (
+          <p className="text-sm text-amber-700">
+            No account on file, so nothing can be paid out to them. The bot asks for this at the
+            hire — if they never answered, enter it below.
+          </p>
+        )}
+
+        {owedToThem > 0 && (
+          <Row label="Owed to them now" value={`${formatEtb(owedToThem)} ETB`} />
+        )}
+
+        <DestinationForm
+          candidateId={c.id}
+          provider={destination.provider}
+          account={destination.account}
+          name={destination.name}
+        />
+
+        <div className="mt-4 border-t border-neutral-100 pt-3">
+          <p className="mb-1 text-xs font-medium text-neutral-500">Pre-payment</p>
+          {(prepayments?.length ?? 0) === 0 ? (
+            <p className="text-sm text-neutral-500">
+              None owed. One is raised at each hire, for the placement that was agreed.
+            </p>
+          ) : (
+            <ul className="space-y-1.5 text-sm">
+              {prepayments!.map((r) => {
+                const stage = prepaymentStage(
+                  {
+                    status: r.status,
+                    dueOn: new Date(`${r.due_on}T00:00:00Z`),
+                    paidAt: r.paid_at ? new Date(r.paid_at) : null,
+                    notified: Boolean(r.notified_at),
+                  },
+                  now,
+                )
+                const label = prepaymentLabel(stage)
+                return (
+                  <li key={r.id} className="flex flex-wrap items-center justify-between gap-3">
+                    <span>
+                      {formatEtb(Number(r.amount_cents))} ETB
+                      <span className="ml-2 font-mono text-xs text-neutral-400">{r.reference}</span>
+                      <span className="ml-2 text-xs text-neutral-400">due {r.due_on}</span>
+                    </span>
+                    <Badge tone={label.tone}>{label.label}</Badge>
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+        </div>
       </Card>
 
       <Card className="p-4">

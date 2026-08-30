@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  findReferences, generateReference, isValidReference,
+  findReferences, generateReference, isValidReference, ledgerOf,
   normalizeReference, REFERENCE_SPACE,
 } from '@/lib/money/reference'
 
@@ -49,6 +49,63 @@ describe('payment reference', () => {
 
   it('is stable given a stable random source', () => {
     const fixed = () => 0.5
-    expect(generateReference(fixed)).toBe(generateReference(fixed))
+    expect(generateReference('invoice', fixed)).toBe(generateReference('invoice', fixed))
+  })
+})
+
+/**
+ * Two ledgers share one bank inbox: families paying invoices, tutors paying
+ * their one-off charge. Everything below is about them never being confused for
+ * one another, because a tutor's transfer marking a family's invoice paid is
+ * money lost quietly.
+ */
+describe('the two ledgers', () => {
+  it('gives a tutor pre-payment its own prefix', () => {
+    for (let i = 0; i < 200; i++) {
+      const code = generateReference('prepayment')
+      expect(code.startsWith('TUT-')).toBe(true)
+      expect(ledgerOf(code)).toBe('prepayment')
+    }
+  })
+
+  it('never generates a code that reads as the other ledger', () => {
+    for (let i = 0; i < 200; i++) {
+      expect(ledgerOf(generateReference('invoice'))).toBe('invoice')
+      expect(ledgerOf(generateReference('prepayment'))).toBe('prepayment')
+    }
+  })
+
+  it('refuses a code for the ledger it does not belong to', () => {
+    expect(isValidReference('TUT-HK7N', 'prepayment')).toBe(true)
+    expect(isValidReference('TUT-HK7N', 'invoice')).toBe(false)
+    expect(isValidReference('MIS-HK7N', 'prepayment')).toBe(false)
+  })
+
+  it('is not a ledger at all when the prefix is unknown', () => {
+    for (const junk of ['XYZ-HK7N', 'HK7N', 'MIS-AEIO', '']) {
+      expect(ledgerOf(junk), junk).toBeNull()
+    }
+  })
+
+  it('reads a tutor code back however it is typed', () => {
+    for (const typed of ['TUT-HK7N', 'tut-hk7n', 'TUThk7n', ' tut hk7n ']) {
+      expect(normalizeReference(typed), typed).toBe('TUT-HK7N')
+    }
+  })
+
+  it('reads a bare code as whichever screen is asking', () => {
+    expect(normalizeReference('hk7n')).toBe('MIS-HK7N')
+    expect(normalizeReference('hk7n', 'prepayment')).toBe('TUT-HK7N')
+    // An explicit prefix always beats the fallback.
+    expect(normalizeReference('MIS-HK7N', 'prepayment')).toBe('MIS-HK7N')
+  })
+
+  it('pulls a tutor code out of a bank SMS', () => {
+    const sms = 'Dear customer, ETB 4,800.00 credited from ABEBE K. Reason: TUT-HK7N. Ref FT2609...'
+    expect(findReferences(sms)).toEqual(['TUT-HK7N'])
+  })
+
+  it('finds both when a message somehow carries both', () => {
+    expect(findReferences('MIS-HK7N and TUT-J4RP').sort()).toEqual(['MIS-HK7N', 'TUT-J4RP'])
   })
 })

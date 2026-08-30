@@ -1,8 +1,15 @@
 # Build plan
 
-Twelve steps. Each is roughly one working session, ends in something usable, and has a test that
+Thirteen steps. Each is roughly one working session, ends in something usable, and has a test that
 must pass before the next one starts. Four steps (marked **STOP**) leave the system genuinely
 useful on its own.
+
+Step 13 was not in the original twelve. It was found afterwards, and it is worth saying why: steps
+10 to 12 are all the *family's* money — invoice, match, pay the tutor. Nothing covered the money
+moving the other way, and nothing covered where the tutor's own payout was to be sent. Both were
+omissions rather than decisions; neither appeared in `docs/06-decisions.md` under Settled, Open, or
+Later, and neither is in `docs/08-retired-commission-option.md`, which exists precisely so a
+discontinued feature is not mistaken for a missing one.
 
 | # | Step | Done when |
 |---|---|---|
@@ -22,10 +29,12 @@ useful on its own.
 | 11 | **SMS matching** — gateway webhook, provider parsers, Unmatched inbox | A real forwarded SMS marks the right invoice paid by itself |
 | 12 | **Payouts** — gross − commission = net, payouts due, reconciliation | One placement runs end to end with every figure correct |
 | | **STOP** | The money side closes the loop. The agency runs end to end. |
+| 13 | **The tutor's side of the money** — payout destination, the pre-payment as a ledger, the agency's own account | A tutor is hired, asked where to be paid, asked for the pre-payment with a code, and pays it from a bank SMS that matches itself |
 
 ## Which steps involve AI
 
-Three of the twelve, and all three work without it:
+Three of the thirteen, and all three work without it. Step 13 involves none: a pre-payment is
+arithmetic, a reference code and a bank SMS, and none of that wants a model.
 
 - **Step 2** — post wording. Starts as a template with no model at all.
 - **Step 5** — CV parsing. Deferrable; the wizard already collects the structured data by buttons,

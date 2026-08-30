@@ -10,6 +10,9 @@ import { GenerateForm } from './generate-form'
 import { markPaid, queueMessage } from './actions'
 import { Unmatched } from './unmatched'
 import { Payouts } from './payouts'
+import { Prepayments } from './prepayments'
+import { hasSomewhereToPay, paymentDetails } from '@/lib/settings/payment-details'
+import { prepaymentTotals, type CountablePrepayment } from '@/lib/money/prepayment'
 
 export const dynamic = 'force-dynamic'
 
@@ -23,18 +26,35 @@ export default async function MoneyPage({ searchParams }: { searchParams: Promis
   const db = supabaseAdmin()
   const now = new Date()
 
-  const [{ data: invoices }, { data: payoutRows }, { count: unmatched }] = await Promise.all([
-    db
-      .from('invoices')
-      .select('*, clients(full_name, phone), placements(candidates(full_name))')
-      .order('issued_on', { ascending: false })
-      .limit(100),
-    db.from('payouts').select('*, candidates(full_name, phone), invoices(reference, period)').order('status').order('due_on'),
-    db.from('payments').select('id', { count: 'exact', head: true }).is('invoice_id', null).neq('matched_by', 'operator'),
-  ])
+  const [{ data: invoices }, { data: payoutRows }, { data: prepaymentRows }, { count: unmatched }, details] =
+    await Promise.all([
+      db
+        .from('invoices')
+        .select('*, clients(full_name, phone), placements(candidates(full_name))')
+        .order('issued_on', { ascending: false })
+        .limit(100),
+      db
+        .from('payouts')
+        .select('*, candidates(full_name, phone, payout_provider, payout_account, payout_name), invoices(reference, period)')
+        .order('status')
+        .order('due_on'),
+      db
+        .from('prepayments')
+        .select('*, candidates(full_name, phone, payout_provider, payout_account), placements(job_posts(subject))')
+        .order('status')
+        .order('due_on'),
+      db
+        .from('payments')
+        .select('id', { count: 'exact', head: true })
+        .is('invoice_id', null)
+        .is('prepayment_id', null)
+        .neq('matched_by', 'operator'),
+      paymentDetails(),
+    ])
 
   const rows = invoices ?? []
   const payouts = payoutRows ?? []
+  const prepayments = prepaymentRows ?? []
 
   const unpaid = rows.filter((i) => i.status !== 'paid' && i.status !== 'cancelled')
   const owed = unpaid.reduce((t, i) => t + Number(i.gross_cents), 0)
@@ -55,6 +75,22 @@ export default async function MoneyPage({ searchParams }: { searchParams: Promis
     ),
   ).netCents
 
+  // The tutors' side of the ledger, which used to be tracked nowhere at all.
+  const owedByTutors = prepaymentTotals(
+    prepayments.map(
+      (p): CountablePrepayment => ({
+        amountCents: Number(p.amount_cents),
+        status: p.status,
+        dueOn: new Date(`${p.due_on}T00:00:00Z`),
+        paidAt: p.paid_at ? new Date(p.paid_at) : null,
+        notified: Boolean(p.notified_at),
+      }),
+    ),
+    now,
+  )
+
+  const canAsk = hasSomewhereToPay(details)
+
   return (
     <PageShell>
       <PageHeader
@@ -63,13 +99,36 @@ export default async function MoneyPage({ searchParams }: { searchParams: Promis
         action={<GenerateForm defaultPeriod={periodKey(now.getUTCFullYear(), now.getUTCMonth() + 1)} />}
       />
 
-      <div className="grid gap-3 sm:grid-cols-3">
+      {!canAsk && (
+        <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-900">
+          No payment account is set, so every invoice goes out without one — the family is told what
+          they owe and not where to send it.{' '}
+          <Link href="/dashboard/settings" className="font-medium underline">
+            Add it under Settings
+          </Link>
+          .
+        </p>
+      )}
+
+      <div className="grid gap-3 sm:grid-cols-4">
         <Stat
           label="Owed to you"
           value={`${formatEtb(owed)} ETB`}
           sub={`${unpaid.length} unpaid${late ? ` · ${late} late` : ''}`}
         />
         <Stat label="Your commission, paid" value={`${formatEtb(yours)} ETB`} tone="good" />
+        <Stat
+          label="Pre-payments owed"
+          value={`${formatEtb(owedByTutors.outstandingCents)} ETB`}
+          sub={
+            owedByTutors.overdue
+              ? `${owedByTutors.overdue} late`
+              : owedByTutors.awaitingDetails
+                ? `${owedByTutors.awaitingDetails} not asked`
+                : `${owedByTutors.due} asked`
+          }
+          tone={owedByTutors.overdue ? 'warn' : undefined}
+        />
         <Stat
           label="Owed to tutors"
           value={`${formatEtb(owedToTutors)} ETB`}
@@ -86,6 +145,9 @@ export default async function MoneyPage({ searchParams }: { searchParams: Promis
           <Tab href="/dashboard/money?tab=payouts" active={tab === 'payouts'}>
             Payouts <Count>{payouts.length}</Count>
           </Tab>
+          <Tab href="/dashboard/money?tab=prepayments" active={tab === 'prepayments'}>
+            Pre-payments <Count>{prepayments.length}</Count>
+          </Tab>
           <Tab href="/dashboard/money?tab=unmatched" active={tab === 'unmatched'}>
             Unmatched payments{' '}
             {unmatched ? (
@@ -100,6 +162,7 @@ export default async function MoneyPage({ searchParams }: { searchParams: Promis
 
         <div className="p-4">
           {tab === 'payouts' && <Payouts rows={payouts} />}
+          {tab === 'prepayments' && <Prepayments rows={prepayments} now={now} canAsk={canAsk} />}
           {tab === 'unmatched' && <Unmatched />}
           {tab === 'invoices' &&
             (rows.length === 0 ? (

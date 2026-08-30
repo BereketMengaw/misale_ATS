@@ -224,13 +224,52 @@ export async function hireCandidate(applicationId: number, operatorId: string | 
 
   // 2. The placement: the figures as agreed, frozen away from later edits.
   const { createPlacementFromHire } = await import('@/lib/placements/service')
-  await createPlacementFromHire(applicationId)
+  const placementId = await createPlacementFromHire(applicationId)
 
-  // 3. Tell the tutor who got it.
+  // 2b. The pre-payment becomes a real debt here, not a sentence in a message.
+  //     It used to exist only as words in `hired()` below, which meant nothing
+  //     recorded who owed it or whether it ever arrived. Raised before the hire
+  //     message goes out so the figure the tutor reads is the figure on the row.
+  if (placementId) {
+    const { createPrepaymentForPlacement } = await import('@/lib/prepayments/service')
+    const raised = await createPrepaymentForPlacement(placementId)
+    // An hourly placement with no schedule yet cannot be priced. It is picked
+    // up from the Money page once the schedule is agreed; a hire must not fail
+    // over it, and the tutor is not chased for a figure nobody has computed.
+    if (!raised.ok) console.warn('pre-payment not raised at hire:', raised.reason)
+  }
+
+  // 3. Tell the tutor who got it, then where to send the pre-payment. The hire
+  //     message quotes the figure and the deadline; on its own that is the old
+  //     hand-sent message all over again, which had to end "call us for detail"
+  //     because it never carried an account number.
   await tell(
     candidate?.chat_id ?? null,
     hired(job, parentName, job.commission_percent, release, client?.phone ?? null),
   )
+
+  if (placementId) {
+    const { data: pre } = await db
+      .from('prepayments').select('id').eq('placement_id', placementId).maybeSingle()
+    if (pre) {
+      const { notifyPrepayment } = await import('@/lib/prepayments/service')
+      await notifyPrepayment(pre.id)
+    }
+
+    // And where THEY are paid. Asked now, while there is a reason to ask —
+    // `payouts` has always known what a tutor is owed and never where to send
+    // it, which left the operator remembering it or asking by hand.
+    const { data: tutor } = await db
+      .from('candidates')
+      .select('telegram_id, chat_id, payout_account')
+      .eq('id', app.candidate_id)
+      .maybeSingle()
+
+    if (tutor?.chat_id && !tutor.payout_account) {
+      const { askForPayoutDetails } = await import('@/lib/bot/flows/payout')
+      await askForPayoutDetails(tutor.telegram_id, tutor.chat_id)
+    }
+  }
 
   // 4. Close out everyone else. Nobody is left waiting on a reply that never comes.
   const { data: others } = await db

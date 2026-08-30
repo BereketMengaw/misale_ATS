@@ -141,3 +141,37 @@ export async function setContactRelease(formData: FormData): Promise<void> {
   revalidatePath('/dashboard/settings')
   revalidatePath('/dashboard/jobs')
 }
+
+/**
+ * The agency's own account — where families send invoices and tutors send
+ * their pre-payment.
+ *
+ * docs/07-setup-checklist.md has carried this as an unchecked box since before
+ * step 10 and nothing ever read it, so every invoice went out naming an amount
+ * and no payee. There is nothing to validate against without a bank API the
+ * project deliberately does not have, so this stores what it is given and the
+ * Money page warns loudly while it is empty.
+ */
+export async function savePayIn(
+  _prev: ChannelFormState,
+  formData: FormData,
+): Promise<ChannelFormState> {
+  const accountName = String(formData.get('accountName') ?? '').trim()
+  const cbeAccount = String(formData.get('cbeAccount') ?? '').replace(/[\s-]/g, '')
+  const telebirr = String(formData.get('telebirr') ?? '').replace(/[\s-]/g, '')
+
+  if (!accountName) return { error: 'Give the name on the account — a family checks it before sending.' }
+  if (!cbeAccount && !telebirr) return { error: 'Give at least one account number.' }
+  for (const [label, value] of [['CBE', cbeAccount], ['Telebirr', telebirr]] as const) {
+    if (value && !/^\d{9,20}$/.test(value)) {
+      return { error: `That ${label} number does not look right — digits only, 9 to 20 of them.` }
+    }
+  }
+
+  const { savePaymentDetails } = await import('@/lib/settings/payment-details')
+  await savePaymentDetails({ accountName, cbeAccount, telebirr })
+
+  revalidatePath('/dashboard/settings')
+  revalidatePath('/dashboard/money')
+  return { ok: 'Saved. Invoices and pre-payment requests will carry it from now on.' }
+}

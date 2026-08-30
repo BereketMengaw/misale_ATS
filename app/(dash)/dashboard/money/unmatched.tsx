@@ -3,7 +3,7 @@ import { formatEtb } from '@/lib/money/commission'
 import { EmptyState } from '@/components/ui'
 import { Button } from '@/components/ui/button'
 import { inputClass } from '@/components/ui/styles'
-import { attachToInvoice, dismiss } from './actions'
+import { attachToInvoice, attachToPrepayment, dismiss } from './actions'
 
 /**
  * Payments that arrived but could not be attached with certainty.
@@ -15,11 +15,12 @@ import { attachToInvoice, dismiss } from './actions'
 export async function Unmatched() {
   const db = supabaseAdmin()
 
-  const [{ data: payments }, { data: open }] = await Promise.all([
+  const [{ data: payments }, { data: open }, { data: owing }] = await Promise.all([
     db
       .from('payments')
       .select('*')
       .is('invoice_id', null)
+      .is('prepayment_id', null)
       .neq('matched_by', 'operator')
       .order('received_at', { ascending: false })
       .limit(50),
@@ -29,14 +30,23 @@ export async function Unmatched() {
       .neq('status', 'paid')
       .neq('status', 'cancelled')
       .order('due_on', { ascending: true }),
+    // Tutors' pre-payments are a second thing a stray transfer can belong to.
+    // Without them here, a tutor who paid without their code could only be
+    // attached to a family's invoice — which would be the wrong money entirely.
+    db
+      .from('prepayments')
+      .select('id, reference, amount_cents, candidates(full_name)')
+      .eq('status', 'due')
+      .order('due_on', { ascending: true }),
   ])
 
   const rows = payments ?? []
   if (rows.length === 0) {
-    return <EmptyState>Nothing unmatched. Every payment that arrived found its invoice.</EmptyState>
+    return <EmptyState>Nothing unmatched. Every payment that arrived found what it was for.</EmptyState>
   }
 
   const invoices = open ?? []
+  const prepayments = owing ?? []
 
   return (
     <div className="space-y-3">
@@ -91,6 +101,33 @@ export async function Unmatched() {
                 </form>
               ) : (
                 <span className="text-xs text-neutral-500">No unpaid invoices to attach it to.</span>
+              )}
+
+              {prepayments.length > 0 && (
+                <form action={attachToPrepayment} className="flex flex-wrap items-center gap-2">
+                  <input type="hidden" name="paymentId" value={p.id} />
+                  <select
+                    name="prepaymentId"
+                    aria-label="Tutor pre-payment to attach this payment to"
+                    className={`${inputClass} w-auto py-1 text-xs`}
+                    defaultValue={
+                      prepayments.find((r) => Number(r.amount_cents) === Number(p.amount_cents))?.id ??
+                      prepayments[0].id
+                    }
+                  >
+                    {prepayments.map((r) => {
+                      const t = r.candidates as unknown as { full_name: string | null } | null
+                      return (
+                        <option key={r.id} value={r.id}>
+                          {r.reference} · {t?.full_name ?? '—'} · {formatEtb(Number(r.amount_cents))}
+                        </option>
+                      )
+                    })}
+                  </select>
+                  <Button variant="secondary" size="sm" pendingLabel="Attaching…">
+                    It is a tutor&rsquo;s pre-payment
+                  </Button>
+                </form>
               )}
 
               <form action={dismiss}>

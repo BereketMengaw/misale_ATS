@@ -8,6 +8,7 @@
  */
 
 import type { Tone } from '@/components/ui/badge'
+import type { PrepaymentStage } from '@/lib/money/prepayment'
 
 export type Label = { label: string; tone: Tone }
 
@@ -64,6 +65,28 @@ export function invoiceLabel(status: string, late: boolean): Label {
   if (late) return { label: 'Late', tone: 'red' }
   if (status === 'sent') return { label: 'Sent', tone: 'neutral' }
   return { label: 'Draft', tone: 'neutral' }
+}
+
+/**
+ * Where a tutor stands on their pre-payment.
+ *
+ * "Not asked yet" is its own state rather than a kind of late. Nobody is
+ * chased for a payment the system never gave them an account for, and the
+ * operator should be able to see that difference at a glance.
+ */
+export function prepaymentLabel(stage: PrepaymentStage): Label {
+  switch (stage) {
+    case 'paid':
+      return { label: 'Paid', tone: 'green' }
+    case 'waived':
+      return { label: 'Waived', tone: 'faded' }
+    case 'overdue':
+      return { label: 'Late', tone: 'red' }
+    case 'awaiting_details':
+      return { label: 'Not asked yet', tone: 'neutral' }
+    default:
+      return { label: 'Asked', tone: 'blue' }
+  }
 }
 
 /** What a queued message is for, in the operator's words. */

@@ -14,7 +14,12 @@
 | Gateway trigger | **User-initiated bulk send** | No unattended server; his own Android phone is enough |
 | Gateway reliability | **Catch-up on open**, not background listening | Android kills background apps; SMS persist on the phone, so nothing is lost |
 | Business separation | **Second SIM + sender allowlist** | Privacy, clean expense line, consistent business number |
-| Build shape | **12 steps, 4 stopping points** | Progress must be verifiable, and stopping early must still be useful |
+| Build shape | **12 steps, 4 stopping points**, plus step 13 | Progress must be verifiable, and stopping early must still be useful |
+| Pre-payment record | **Its own table**, not a row in `invoices` | A paid invoice always raises a payout; a pre-payment filed there would have paid the tutor for paying us |
+| Pre-payment codes | **`TUT-` prefix**, separate from `MIS-` | Both ledgers arrive as the same bank SMS. A shared code space would let a tutor's transfer mark a family's invoice paid |
+| Tutor payout details | **Asked at the hire**, not at registration | Every applicant would otherwise hand over bank details for a job they may not get |
+| Account number in the bot | **In `settings`, sent verbatim** | Never in `knowledge.ts`: the model rewrites what is there, and a rewritten account number is money sent nowhere |
+| Asking for money with no account set | **Blocked, with a warning** | A request that cannot say where to send it is what forced the old "call us for detail" |
 
 ## Open — answer at the step that needs it
 
