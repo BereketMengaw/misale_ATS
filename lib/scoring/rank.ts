@@ -1,3 +1,4 @@
+import { ALL_SUBJECTS, DEFAULT_SUBJECTS } from '@/lib/candidates/options'
 import { gradeBand } from './grades'
 import type { Availability } from '@/lib/candidates/availability'
 import { availableDays } from '@/lib/candidates/availability'
@@ -23,8 +24,8 @@ export type Weights = {
 }
 
 export const DEFAULT_WEIGHTS: Weights = {
-  subject: 30,
-  grade: 15,
+  subject: 15,
+  grade: 30,
   area: 20,
   availability: 15,
   experience: 10,
@@ -125,13 +126,30 @@ export function rank(
     possible += max
   }
 
-  // --- subject: the whole point of the match ---
+  // --- subject ---
+  // Families here hire by grade, and most tutors teach everything, so this
+  // separates fewer people than it looks like it should — hence grade, not
+  // subject, carrying the larger weight.
   const wanted = norm(job.subject)
   const teaches = candidate.subjects.map(norm)
+  const anySubject = norm(ALL_SUBJECTS)
+
+  // Ticking every subject on the list is the same claim as tapping the
+  // wildcard, and predates it. Checked against the default list, so an
+  // operator with a custom list still has the explicit marker.
+  const teachesEverything =
+    teaches.includes(anySubject) || DEFAULT_SUBJECTS.every((s) => teaches.includes(norm(s)))
+  const jobWantsEverything = wanted === anySubject
+
+  // A post for every subject needs a generalist: a maths tutor cannot cover it.
+  const subjectMatch = jobWantsEverything ? teachesEverything : teachesEverything || teaches.includes(wanted)
+
   add(
     'subject',
-    teaches.includes(wanted) ? `Teaches ${job.subject}` : `Does not teach ${job.subject}`,
-    teaches.includes(wanted) ? 1 : 0,
+    jobWantsEverything
+      ? subjectMatch ? 'Teaches every subject' : 'Does not teach every subject'
+      : subjectMatch ? `Teaches ${job.subject}` : `Does not teach ${job.subject}`,
+    subjectMatch ? 1 : 0,
   )
 
   // --- grade band ---
@@ -218,7 +236,8 @@ export function compareRanked<T extends { rank: RankResult }>(a: T, b: T): numbe
   const points = (r: RankResult, key: keyof Weights) =>
     r.breakdown.find((c) => c.key === key)?.points ?? 0
 
-  for (const key of ['subject', 'area', 'availability'] as const) {
+  // Same order as the weights: grade decides, then distance, then subject.
+  for (const key of ['grade', 'area', 'subject', 'availability'] as const) {
     const diff = points(b.rank, key) - points(a.rank, key)
     if (diff !== 0) return diff
   }

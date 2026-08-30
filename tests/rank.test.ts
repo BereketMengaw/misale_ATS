@@ -77,6 +77,40 @@ describe('rank', () => {
     expect(rank(job, everyDay).score).toBe(100)
   })
 
+  // Families hire by grade and most tutors teach everything, so both sides of
+  // the match can say "all subjects".
+  describe('all subjects', () => {
+    const generalist = { ...ideal, subjects: ['All subjects'] }
+    const everySubject = {
+      ...ideal,
+      subjects: ['Mathematics', 'Physics', 'Chemistry', 'Biology', 'English',
+                 'Amharic', 'Geography', 'History', 'Economics', 'ICT'],
+    }
+    const allSubjectsJob = { ...job, subject: 'All subjects' }
+
+    it('lets a generalist match a job asking for one subject', () => {
+      expect(rank(job, generalist).score).toBe(100)
+    })
+
+    it('counts ticking every subject as the same claim', () => {
+      expect(rank(job, everySubject).score).toBe(100)
+      expect(rank(allSubjectsJob, everySubject).score).toBe(100)
+    })
+
+    it('matches a generalist to a job wanting every subject', () => {
+      expect(rank(allSubjectsJob, generalist).score).toBe(100)
+    })
+
+    // The half that is easy to get backwards: a maths tutor cannot cover a
+    // post that asks for every subject.
+    it('does not let a specialist cover a job wanting every subject', () => {
+      const specialist = { ...ideal, subjects: ['Mathematics'] }
+      const result = rank(allSubjectsJob, specialist)
+      expect(result.score).toBeLessThan(100)
+      expect(result.breakdown.find((c) => c.key === 'subject')!.points).toBe(0)
+    })
+  })
+
   it('matches subjects case-insensitively', () => {
     expect(rank(job, { ...ideal, subjects: ['mathematics'] }).score).toBe(100)
   })
@@ -108,17 +142,24 @@ describe('rank', () => {
 describe('ordering', () => {
   it('puts the better match first and excluded candidates last', () => {
     const people = [
-      { name: 'wrong subject', c: { ...ideal, subjects: ['History'] } },
+      { name: 'wrong grade', c: { ...ideal, grades: ['1-4'] } },
       { name: 'perfect', c: ideal },
-      { name: 'wrong area', c: { ...ideal, area: 'Akaky Kaliti' } },
+      { name: 'wrong subject', c: { ...ideal, subjects: ['History'] } },
     ].map((p) => ({ ...p, rank: rank(job, p.c) }))
 
     const order = [...people].sort(compareRanked).map((p) => p.name)
     expect(order[0]).toBe('perfect')
-    expect(order[2]).toBe('wrong subject')
+    // Grade outweighs subject, so missing the grade is the worse miss.
+    expect(order[2]).toBe('wrong grade')
   })
 
-  it('breaks a tie on subject, then area, then availability', () => {
+  it('costs more to miss the grade than the subject', () => {
+    const wrongGrade = rank(job, { ...ideal, grades: ['1-4'] }).score
+    const wrongSubject = rank(job, { ...ideal, subjects: ['History'] }).score
+    expect(wrongGrade).toBeLessThan(wrongSubject)
+  })
+
+  it('breaks a tie on grade, then area, then subject', () => {
     const a = { rank: rank(job, { ...ideal, education: 'degree', rating: null }) }
     const b = { rank: rank(job, { ...ideal, subjects: ['History'], area: 'Bole' }) }
     expect(compareRanked(a, b)).toBeLessThan(0)

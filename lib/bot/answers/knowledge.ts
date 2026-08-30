@@ -102,7 +102,7 @@ export const KNOWLEDGE: KnowledgeEntry[] = [
       'criteria', 'requirement', 'qualify', 'qualification',
     ],
     answer:
-      'Everyone who applies is scored the same way. Teaching the subject counts most, then how close you live to the family, then the grade, whether your days cover what the job needs, your experience and your education, and how your past placements were rated. Never having been rated does not count against you.',
+      'Everyone who applies is scored the same way. The grade counts most, then how close you live to the family, then the subject, whether your days cover what the job needs, your experience and your education, and how your past placements were rated. Never having been rated does not count against you.',
   },
   {
     id: 'negotiate',
@@ -222,6 +222,17 @@ export const KNOWLEDGE: KnowledgeEntry[] = [
     ],
     answer:
       'No. Applying and registering are free, and nothing is ever due before you are hired. The only amount you owe us is the one-off pre-payment, and that is named in your offer before you accept it.',
+  },
+  {
+    id: 'all-subjects',
+    topic: 'What if I teach every subject?',
+    keywords: [
+      'all subject', 'every subject', 'any subject', 'all subjects',
+      'teach everything', 'which subject', 'what subject', 'only maths',
+      'general tutor',
+    ],
+    answer:
+      'Say so — there is an "All subjects" button in the subjects step, and it matches you to any job. Most jobs here are for a grade rather than a single subject, so it is worth using if it is true of you.',
   },
   {
     id: 'requirements',

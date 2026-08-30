@@ -5,7 +5,7 @@ import { logMessage } from '../log'
 import { getJob } from '../jobs'
 import { nextStep, ownsStep, prevStep, progress, STEP_LABEL, type RegisterStep } from './steps'
 import {
-  DAYS, DEFAULT_AREAS, DEFAULT_SUBJECTS, EDUCATION, EXPERIENCE,
+  DAYS, DEFAULT_AREAS, ALL_SUBJECTS, SUBJECT_CHOICES, EDUCATION, EXPERIENCE,
   GENDERS, GRADE_BANDS, labelFor, RATE_BANDS, SLOTS, type Option,
 } from '@/lib/candidates/options'
 import { applyToJob, saveCandidate, storeCv, type Draft } from '@/lib/candidates/store'
@@ -117,7 +117,7 @@ function promptFor(ctx: Context, step: RegisterStep, draft: Draft): Prompt {
       return {
         text: head + copy.reg.subjects,
         inline: withBack(multiSelect(
-          DEFAULT_SUBJECTS.map((x) => ({ value: x, label: x })), draft.subjects ?? [], 'reg:subject',
+          SUBJECT_CHOICES.map((x) => ({ value: x, label: x })), draft.subjects ?? [], 'reg:subject',
         ), step),
       }
 
@@ -353,13 +353,21 @@ export async function handleRegisterCallback(ctx: Context, field: string, value:
       }
 
       chosen.has(value) ? chosen.delete(value) : chosen.add(value)
+
+      // "All subjects" and a list of subjects are two answers to the same
+      // question, so the last tap wins rather than leaving both ticked.
+      if (field === 'subject' && chosen.has(ALL_SUBJECTS)) {
+        if (value === ALL_SUBJECTS) chosen.clear(), chosen.add(ALL_SUBJECTS)
+        else chosen.delete(ALL_SUBJECTS)
+      }
+
       draft[key] = [...chosen]
       await save()
       await ctx.answerCallbackQuery()
 
       // Redraw in place so the ticks move without a new message.
       const options =
-        field === 'subject' ? DEFAULT_SUBJECTS.map((s) => ({ value: s, label: s }))
+        field === 'subject' ? SUBJECT_CHOICES.map((s) => ({ value: s, label: s }))
         : field === 'grade' ? GRADE_BANDS
         : field === 'day' ? DAYS
         : SLOTS

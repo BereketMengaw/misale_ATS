@@ -63,6 +63,13 @@ export const RATE_BANDS: Option[] = [
 ]
 
 /** Defaults; the live lists come from `settings` so they change without a deploy. */
+/**
+ * Most tutoring here is hired by grade, not by subject: a family wants someone
+ * for grade 5, and that person teaches everything. Both sides of the match can
+ * say so — a tutor taps this, and an operator types it as a job's subject.
+ */
+export const ALL_SUBJECTS = 'All subjects'
+
 export const DEFAULT_SUBJECTS = [
   'Mathematics', 'Physics', 'Chemistry', 'Biology', 'English',
   'Amharic', 'Geography', 'History', 'Economics', 'ICT',
@@ -72,6 +79,9 @@ export const DEFAULT_AREAS = [
   'Bole', 'Yeka', 'Kirkos', 'Arada', 'Lideta',
   'Addis Ketema', 'Gulele', 'Kolfe Keranio', 'Nifas Silk-Lafto', 'Akaky Kaliti',
 ]
+
+/** What the wizard offers: the wildcard first, then the named subjects. */
+export const SUBJECT_CHOICES = [ALL_SUBJECTS, ...DEFAULT_SUBJECTS]
 
 export function labelFor(options: Option[], value: string | null | undefined): string {
   if (!value) return '—'
