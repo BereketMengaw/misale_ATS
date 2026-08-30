@@ -530,6 +530,13 @@ async function handleIntent(ctx: Context, text: string): Promise<boolean> {
     return true
   }
 
+  // Asked for the menu. Hand over the menu, rather than sending the words to a
+  // model and telling them nobody wrote that down.
+  if (intent === 'wants-the-menu') {
+    await reply(ctx, copy.menu, mainMenu())
+    return true
+  }
+
   // "The first one" — a reply to a list the bot did not send and cannot see.
   if (intent === 'picks-from-a-list') {
     const jobs = await listOpenJobs()

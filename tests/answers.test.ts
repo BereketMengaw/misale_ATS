@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs'
 import { DEFAULT_AREAS } from '@/lib/candidates/options'
 import { bestAnswer, normalize, retrieve, scoreAll } from '@/lib/bot/answers/retrieve'
 import { nearestTopics } from '@/lib/bot/answers/service'
+import { detectIntent } from '@/lib/bot/answers/intent'
 import { rejectAnswer } from '@/lib/ai/provider'
 import { answerQuestionTemplate } from '@/lib/ai/providers/template'
 
@@ -372,6 +373,49 @@ describe('what to offer when nothing was answered', () => {
       for (const entry of nearestTopics(q, [])) {
         expect(entryById(entry.id), `${q} -> ${entry.id}`).toBeTruthy()
       }
+    }
+  })
+})
+
+/**
+ * Every one of these came out of bot_answers — real questions from real
+ * tutors that went to the model and came back with "nobody has written that
+ * down yet". Two were not knowledge gaps at all.
+ */
+describe('questions that were actually asked', () => {
+  it('hands over the menu when somebody asks for the buttons', () => {
+    for (const asked of [
+      'okay show me the buttons then',
+      'show me the menu',
+      'what can i do',
+      'give me the buttons',
+      'back to menu please',
+    ]) {
+      expect(detectIntent(asked), asked).toBe('wants-the-menu')
+    }
+  })
+
+  it('does not mistake a real question for a request for the menu', () => {
+    for (const asked of [
+      'how much do you pay',
+      'when do i hear back',
+      'what is the pre-payment',
+      'can i teach two families',
+    ]) {
+      expect(detectIntent(asked), asked).not.toBe('wants-the-menu')
+    }
+  })
+
+  /** Asked as "how do i change the payments" and matched the wrong entry. */
+  it('finds the account entry however changing it is phrased', () => {
+    for (const asked of [
+      'how do i change the payments',
+      'change my payment details',
+      'i want to change my bank',
+      'can i use a new account',
+    ]) {
+      const ids = retrieve(asked, 3).map((m) => m.entry.id)
+      expect(ids, asked).toContain('how-you-pay-me')
     }
   })
 })

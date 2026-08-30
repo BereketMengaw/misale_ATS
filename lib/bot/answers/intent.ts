@@ -21,6 +21,8 @@ export type Intent =
   | 'picks-from-a-list'
   /** "Okay thank you" — deserves a reply, not an answer. */
   | 'courtesy'
+  /** "Show me the buttons" — asking for the menu, not asking a question. */
+  | 'wants-the-menu'
   | null
 
 /**
@@ -100,11 +102,31 @@ export const asksIfOpen = (t: string) => ASKS_IF_OPEN.test(t)
  * applying; "the first one" is a list reply even though it is also short
  * enough to look like a courtesy.
  */
+/**
+ * Asking for the menu. Somebody who types "show me the buttons then" wants
+ * the buttons, and answering that out of the knowledge base is absurd — it
+ * went to the model, came back uncovered, and told a person who asked for a
+ * menu that nobody had written that down yet.
+ */
+const MENU_PHRASES = [
+  'show me the button', 'show the button', 'show me the menu', 'show the menu',
+  'give me the button', 'give me the menu', 'where are the button',
+  'the buttons', 'the menu', 'main menu', 'go back to the menu', 'back to menu',
+  'what can i do', 'what can you do', 'what are my option', 'my options',
+  'show me option', 'show option', 'show me what you have',
+]
+
+function wantsTheMenu(text: string): boolean {
+  const t = normalize(text)
+  return MENU_PHRASES.some((p) => t.includes(p))
+}
+
 export function detectIntent(text: string): Intent {
   const t = text.trim()
   if (!t) return null
   if (wantsToApply(t)) return 'apply'
   if (asksIfOpen(t)) return 'job-status'
+  if (wantsTheMenu(t)) return 'wants-the-menu'
   if (picksFromAList(t)) return 'picks-from-a-list'
   if (isCourtesy(t)) return 'courtesy'
   return null

@@ -444,6 +444,11 @@ export const KNOWLEDGE: KnowledgeEntry[] = [
       'how do you pay me', 'how will i be paid', 'where will you send',
       'my account', 'my bank', 'change my account', 'wrong account',
       'update account', 'pay into',
+      // Asked as "how do i change the payments" and matched the general pay
+      // entry instead, which does not answer it.
+      'change the payment', 'change payment', 'change my payment',
+      'change the payments', 'payment detail', 'payment details',
+      'change bank', 'change my bank', 'new account', 'new bank',
     ],
     answer:
       'Into the account you gave us when you were hired — Telebirr, CBE or another bank, whichever you chose. You get a message here when it is sent. To change the account, tap Payment details in the menu; there is nobody to ring about it.',
