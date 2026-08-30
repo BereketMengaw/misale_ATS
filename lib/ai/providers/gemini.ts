@@ -43,8 +43,9 @@ const SYSTEM = [
   '- You may be given more facts than the question needs. Use the ones that apply and ignore the rest.',
   '- List in usedFactIds the id of every fact your answer relies on. If that list would be empty, the FACTS did not answer the question: set covered to false.',
   '- A fact that is merely about a similar word does not count. "What if I want to stop teaching" is not answered by a fact about deleting your data.',
-  '- If EARLIER is given, the question may be a follow-up to it: resolve "it", "that", "are you sure", "what about this" against that exchange. If the question stands on its own, ignore EARLIER.',
-  '- Never treat EARLIER as a fact. It is only there to say what the question is about.',
+  '- CONVERSATION is what has already been said here. Resolve "it", "that", "are you sure", "what about this" against it, and do not repeat an answer you have already given in the same words.',
+  '- ABOUT THEM says where this person stands. Use it to answer their situation rather than in general — someone already hired does not need to be told how to apply.',
+  '- Neither CONVERSATION nor ABOUT THEM is a fact. Never quote them as one, and never state a status they do not contain.',
 ].join('\n')
 
 function prompt(question: Question): string {
@@ -52,12 +53,15 @@ function prompt(question: Question): string {
     .map((f) => `FACT id=${f.id} (${f.topic})\n${f.answer}`)
     .join('\n\n')
 
-  const earlier = question.previous
+  const about = question.standing
+    ? ['ABOUT THEM', '----------', question.standing, '']
+    : []
+
+  const earlier = question.history?.length
     ? [
-        'EARLIER IN THIS CHAT',
-        '--------------------',
-        `They asked: ${question.previous.question}`,
-        `You answered: ${question.previous.answer}`,
+        'CONVERSATION SO FAR',
+        '-------------------',
+        ...question.history.flatMap((t) => [`They asked: ${t.question}`, `You answered: ${t.answer}`]),
         '',
       ]
     : []
@@ -67,6 +71,7 @@ function prompt(question: Question): string {
     '-----',
     facts || '(none)',
     '',
+    ...about,
     ...earlier,
     'QUESTION',
     '--------',

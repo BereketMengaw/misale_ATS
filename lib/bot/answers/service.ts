@@ -1,5 +1,6 @@
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { getSession, saveSession } from '@/lib/bot/session'
+import { standingOf } from './standing'
 import { activeProviderName, answerQuestion } from '@/lib/ai/provider'
 import { KNOWLEDGE, type KnowledgeEntry } from './knowledge'
 import { normalize, retrieve } from './retrieve'
@@ -39,34 +40,39 @@ const MIN_QUESTION_LENGTH = 6
 /** Longer than this is a story. Truncate before it reaches a token counter. */
 const MAX_QUESTION_LENGTH = 500
 
-type LastTurn = { question: string; answer: string; factIds: string[]; at: string }
+type Turn = { question: string; answer: string; factIds: string[]; at: string }
 
-/** The previous exchange, if it is recent enough to be what "it" refers to. */
-async function recentTurn(telegramId: number): Promise<LastTurn | null> {
+/** How many exchanges the bot keeps in mind. Enough to follow a thread, short
+ *  enough that the prompt stays small and the oldest turn stays relevant. */
+const THREAD_LENGTH = 4
+
+/** The conversation so far, oldest first, while it is still recent enough to
+ *  be what "it" refers to. */
+async function recentThread(telegramId: number): Promise<Turn[]> {
   try {
     const session = await getSession(telegramId)
-    const last = session?.data?.lastTurn as LastTurn | undefined
-    if (!last?.question || !last.at) return null
-    const age = Date.now() - new Date(last.at).getTime()
-    return age <= FOLLOW_UP_MINUTES * 60 * 1000 ? last : null
+    const thread = session?.data?.thread as Turn[] | undefined
+    if (!Array.isArray(thread) || thread.length === 0) return []
+    const cutoff = Date.now() - FOLLOW_UP_MINUTES * 60 * 1000
+    return thread.filter((t) => t?.question && t.at && new Date(t.at).getTime() >= cutoff)
   } catch (err) {
-    console.error('could not read the last turn', err)
-    return null
+    console.error('could not read the thread', err)
+    return []
   }
 }
 
 async function rememberTurn(
   telegramId: number,
   chatId: number,
-  turn: Omit<LastTurn, 'at'>,
+  thread: Turn[],
+  turn: Omit<Turn, 'at'>,
 ): Promise<void> {
   try {
-    await saveSession(telegramId, chatId, {
-      data: { lastTurn: { ...turn, at: new Date().toISOString() } },
-    })
+    const next = [...thread, { ...turn, at: new Date().toISOString() }].slice(-THREAD_LENGTH)
+    await saveSession(telegramId, chatId, { data: { thread: next } })
   } catch (err) {
     // Losing the memory costs context, never the answer.
-    console.error('could not remember the last turn', err)
+    console.error('could not remember the turn', err)
   }
 }
 
@@ -182,7 +188,8 @@ export async function answerFor(
   const matched = retrieve(question, 3).map((m) => m.entry)
   const related = relatedTo(matched)
   const hasModel = activeProviderName() !== 'template'
-  const previous = await recentTurn(telegramId)
+  const [thread, standing] = await Promise.all([recentThread(telegramId), standingOf(telegramId)])
+  const previous = thread.length ? thread[thread.length - 1] : null
 
   // "Are you sure?" retrieves nothing, because it is about whatever came
   // before it. Carry the last answer's facts rather than handing the model
@@ -235,11 +242,12 @@ export async function answerFor(
     text: question,
     facts: facts.map(asFact),
     fallback: matched[0] ? asFact(matched[0]) : null,
-    previous: previous ? { question: previous.question, answer: previous.answer } : null,
+    history: thread.map((t) => ({ question: t.question, answer: t.answer })),
+    standing,
   })
 
   if (answer.covered && answer.text) {
-    await rememberTurn(telegramId, chatId, {
+    await rememberTurn(telegramId, chatId, thread, {
       question,
       answer: answer.text,
       factIds: answer.usedFactIds?.length ? answer.usedFactIds : facts.map((e) => e.id),
