@@ -1,4 +1,6 @@
-import type { AiProvider, Answer, CvFile, CvRead, JobFields, PostDraft, Question } from '../types'
+import type {
+  AiProvider, Answer, CvFile, CvRead, DocumentRead, JobFields, PostDraft, Question,
+} from '../types'
 import { formatEtb, split, toCents } from '@/lib/money/commission'
 import { ALL_SUBJECTS } from '@/lib/candidates/options'
 
@@ -115,6 +117,18 @@ export function parseCvTemplate(): CvRead {
   return { read: false, raw: {}, generatedBy: 'template' }
 }
 
+/**
+ * The no-model check: the document was not read.
+ *
+ * Verification is the one part of this that has no useful fallback — there is
+ * no deterministic way to tell what a scanned certificate says. So without a
+ * model the documents stay what they have always been: files the operator opens
+ * himself, listed beside the profile. Nothing is claimed about them either way.
+ */
+export function verifyDocumentTemplate(): DocumentRead {
+  return { read: false, raw: {}, generatedBy: 'template' }
+}
+
 export const templateProvider: AiProvider = {
   name: 'template',
   async writePost(fields: JobFields): Promise<PostDraft> {
@@ -125,5 +139,8 @@ export const templateProvider: AiProvider = {
   },
   async parseCv(_file: CvFile): Promise<CvRead> {
     return parseCvTemplate()
+  },
+  async verifyDocument(_file: CvFile): Promise<DocumentRead> {
+    return verifyDocumentTemplate()
   },
 }

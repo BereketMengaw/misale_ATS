@@ -114,10 +114,41 @@ export type CvRead = {
   generatedBy: string
 }
 
+// ---------------------------------------------------------------------------
+// Checking an educational document
+// ---------------------------------------------------------------------------
+
+/**
+ * What a provider says a degree, diploma or transcript contains.
+ *
+ * Loose, like `RawCv`, and for the same reason: the verdict is decided in
+ * `lib/candidates/documents.ts`, where it is pure and tested. A model that
+ * announces a document is fake, or that a tutor is lying, has no way to express
+ * that here — it reports what the paper says and nothing else.
+ */
+export type RawDocument = {
+  /** degree | diploma | transcript | grade12 | other | not-a-document */
+  kind?: string | null
+  /** The qualification in the document's own words: "Bachelor of Science". */
+  level?: string | null
+  /** The name of the person the document is about. */
+  holderName?: string | null
+  institution?: string | null
+  awardedYear?: string | number | null
+}
+
+export type DocumentRead = {
+  /** False when no model ran, or nothing usable came back. Never an error. */
+  read: boolean
+  raw: RawDocument
+  generatedBy: string
+}
+
 export interface AiProvider {
   readonly name: string
   writePost(fields: JobFields): Promise<PostDraft>
   answerQuestion(question: Question): Promise<Answer>
   parseCv(file: CvFile): Promise<CvRead>
+  verifyDocument(file: CvFile): Promise<DocumentRead>
   // parseSMS lands at step 11.
 }

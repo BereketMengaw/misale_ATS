@@ -1,6 +1,8 @@
 import { env } from '@/lib/env'
-import type { AiProvider, Answer, CvFile, CvRead, JobFields, PostDraft, Question, RawCv } from '../types'
-import { writePostTemplate, parseCvTemplate } from './template'
+import type {
+  AiProvider, Answer, CvFile, CvRead, DocumentRead, JobFields, PostDraft, Question, RawCv, RawDocument,
+} from '../types'
+import { writePostTemplate, parseCvTemplate, verifyDocumentTemplate } from './template'
 import { DEFAULT_AREAS, SUBJECT_CHOICES } from '@/lib/candidates/options'
 
 /**
@@ -275,6 +277,106 @@ async function readCv(file: CvFile, apiKey: string): Promise<RawCv | null> {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Checking an educational document
+// ---------------------------------------------------------------------------
+
+/**
+ * Note what is not asked for. The model is never invited to judge whether a
+ * certificate is genuine, and never asked whether the tutor is telling the
+ * truth. It reads the paper and reports it; whether that backs what they
+ * answered is decided in `lib/candidates/documents.ts`, by comparing two enums.
+ *
+ * That split is the whole safety of this feature. A model asked "is this real?"
+ * will answer, confidently, on no evidence — and the answer would be about a
+ * person's honesty, sitting in a database, next to their name.
+ */
+const DOC_SYSTEM = [
+  'You are reading a scanned educational document from Ethiopia — a degree certificate,',
+  'a diploma, a university transcript, or a grade 12 national exam certificate.',
+  '',
+  'Report only what is printed on it. Do not judge whether it is authentic, and do not',
+  'comment on the person. If the image is too poor to read a field, that field is null.',
+  '',
+  'Fields:',
+  '- kind: one of degree, diploma, transcript, grade12, other, not-a-document.',
+  '  Use not-a-document only when the file is plainly not educational at all — a photo of a',
+  '  person, a receipt, a blank page. A document you cannot read is "other", not "not-a-document".',
+  "- level: the qualification exactly as printed (\"Bachelor of Science in Physics\", \"Diploma in Accounting\").",
+  '  Null for a transcript or a grade 12 certificate, which award no qualification.',
+  '- holderName: the name of the person the document is about, as printed.',
+  '- institution: the university, college or school that issued it.',
+  '- awardedYear: the four-digit year it was issued. If the date is in the Ethiopian calendar,',
+  '  convert it to the Gregorian year. Null if no year is printed.',
+].join('\n')
+
+export const DOC_SCHEMA = {
+  type: 'OBJECT',
+  properties: {
+    kind: {
+      type: 'STRING',
+      enum: ['degree', 'diploma', 'transcript', 'grade12', 'other', 'not-a-document'],
+    },
+    level: { type: 'STRING', nullable: true },
+    holderName: { type: 'STRING', nullable: true },
+    institution: { type: 'STRING', nullable: true },
+    awardedYear: { type: 'STRING', nullable: true },
+  },
+  // Same lesson as CV_SCHEMA: left optional, the fields that take actual
+  // reading are the ones that quietly go missing.
+  required: ['kind', 'level', 'holderName', 'institution', 'awardedYear'],
+} as const
+
+async function readDocument(file: CvFile, apiKey: string): Promise<RawDocument | null> {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), CV_TIMEOUT_MS)
+
+  try {
+    const res = await fetch(`${ENDPOINT}/${model()}:generateContent`, {
+      method: 'POST',
+      signal: controller.signal,
+      headers: { 'content-type': 'application/json', 'x-goog-api-key': apiKey },
+      body: JSON.stringify({
+        systemInstruction: { parts: [{ text: DOC_SYSTEM }] },
+        contents: [
+          {
+            role: 'user',
+            parts: [
+              { inlineData: { mimeType: file.mime, data: Buffer.from(file.bytes).toString('base64') } },
+              { text: 'Read this document.' },
+            ],
+          },
+        ],
+        generationConfig: {
+          temperature: 0,
+          maxOutputTokens: 400,
+          responseMimeType: 'application/json',
+          responseSchema: DOC_SCHEMA,
+        },
+      }),
+    })
+
+    if (!res.ok) {
+      console.error(`gemini document ${res.status}: ${(await res.text()).slice(0, 300)}`)
+      return null
+    }
+
+    const body = (await res.json()) as {
+      candidates?: { content?: { parts?: { text?: string }[] } }[]
+    }
+    const text = body.candidates?.[0]?.content?.parts?.[0]?.text
+    if (!text) return null
+
+    const parsed = JSON.parse(text) as RawDocument
+    return parsed && typeof parsed === 'object' ? parsed : null
+  } catch (err) {
+    console.error('gemini document read failed', err)
+    return null
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
 export const geminiProvider: AiProvider = {
   name: 'gemini',
 
@@ -314,6 +416,16 @@ export const geminiProvider: AiProvider = {
 
     const raw = await readCv(file, apiKey)
     if (!raw) return parseCvTemplate()
+
+    return { read: true, raw, generatedBy: 'gemini' }
+  },
+
+  async verifyDocument(file: CvFile): Promise<DocumentRead> {
+    const apiKey = env.geminiApiKey
+    if (!apiKey) return verifyDocumentTemplate()
+
+    const raw = await readDocument(file, apiKey)
+    if (!raw) return verifyDocumentTemplate()
 
     return { read: true, raw, generatedBy: 'gemini' }
   },

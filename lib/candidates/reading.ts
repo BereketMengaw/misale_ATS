@@ -1,8 +1,11 @@
 import { supabaseAdmin } from '@/lib/supabase/admin'
-import { parseCv } from '@/lib/ai/provider'
+import { parseCv, verifyDocument } from '@/lib/ai/provider'
 import { completeness, type ProfileFields } from './completeness'
 import { MAX_UPLOAD_BYTES, READABLE_MIME } from './files'
 import { mergeCv, readCvFacts, saysNothing, type CvReading } from './cv'
+import {
+  checkDocument, needsAttention, readDocumentFacts, type DocumentCheck,
+} from './documents'
 
 /**
  * Reading one tutor's CV into their profile. The I/O half of step 5 — the
@@ -191,5 +194,147 @@ export function readFailureMessage(reason: ReadFailure): string {
       return 'It was read, and there was nothing in it the profile can use.'
     case 'save-failed':
       return 'It was read, but the result could not be saved. Try again.'
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Checking the educational documents
+// ---------------------------------------------------------------------------
+
+/**
+ * At most this many documents go to a model on one press.
+ *
+ * Somebody sends a degree, a transcript and a grade 12 certificate; five is
+ * comfortably above that and well below what a mistake could cost. The button
+ * says how many it will read before it reads them, so the operator is never
+ * surprised by the number.
+ */
+export const MAX_DOCUMENTS_PER_CHECK = 5
+
+export type DocumentOutcome = {
+  id: number
+  name: string
+  check: DocumentCheck | null
+  /** Set when this one could not be read; the others still were. */
+  skipped?: 'unreadable-type' | 'download-failed' | 'no-model'
+}
+
+export type VerifyOutcome =
+  | { ok: true; results: DocumentOutcome[]; checked: number; attention: number; already: number }
+  | { ok: false; reason: 'no-candidate' | 'no-documents' | 'no-model' | 'save-failed' }
+
+type DocRow = {
+  id: number
+  path: string
+  file_name: string | null
+  mime: string | null
+  verification: unknown
+  verified_at: string | null
+}
+
+/**
+ * Check a tutor's educational documents against what they answered.
+ *
+ * Same shape as reading the CV, and for the same reasons: the operator presses
+ * it, nothing happens on upload, and a document already checked is not sent
+ * again. The one difference is that this reads several files, so it is capped —
+ * a profile with fifteen scans on it must not turn one press into fifteen calls.
+ */
+export async function verifyCandidateDocuments(
+  candidateId: number,
+  { force = false }: { force?: boolean } = {},
+): Promise<VerifyOutcome> {
+  const db = supabaseAdmin()
+
+  const { data: candidate } = await db
+    .from('candidates')
+    .select('id, full_name, education')
+    .eq('id', candidateId)
+    .maybeSingle()
+  if (!candidate) return { ok: false, reason: 'no-candidate' }
+
+  const { data } = await db
+    .from('candidate_documents')
+    .select('id, path, file_name, mime, verification, verified_at')
+    .eq('candidate_id', candidateId)
+    .order('created_at', { ascending: true })
+
+  const documents = (data ?? []) as DocRow[]
+  if (documents.length === 0) return { ok: false, reason: 'no-documents' }
+
+  const already = documents.filter((d) => d.verification && !force).length
+  const pending = documents
+    .filter((d) => force || !d.verification)
+    .slice(0, MAX_DOCUMENTS_PER_CHECK)
+
+  const claim = { fullName: candidate.full_name, education: candidate.education }
+  const results: DocumentOutcome[] = []
+  let checked = 0
+  let attention = 0
+  let sawAModel = false
+
+  for (const doc of pending) {
+    const name = doc.file_name ?? 'Document'
+
+    if (!READABLE_MIME.test(doc.mime ?? '')) {
+      results.push({ id: doc.id, name, check: null, skipped: 'unreadable-type' })
+      continue
+    }
+
+    const { data: file, error } = await db.storage.from('cvs').download(doc.path)
+    if (error || !file || file.size > MAX_UPLOAD_BYTES) {
+      console.error('verifyCandidateDocuments could not download a document', error)
+      results.push({ id: doc.id, name, check: null, skipped: 'download-failed' })
+      continue
+    }
+
+    const read = await verifyDocument({
+      bytes: await file.arrayBuffer(),
+      mime: doc.mime ?? 'application/pdf',
+      name,
+    })
+
+    if (!read.read) {
+      results.push({ id: doc.id, name, check: null, skipped: 'no-model' })
+      continue
+    }
+    sawAModel = true
+
+    const check = checkDocument(claim, readDocumentFacts(read.raw))
+    if (needsAttention(check.verdict)) attention += 1
+    checked += 1
+
+    const { error: saveError } = await db
+      .from('candidate_documents')
+      .update({
+        verification: check,
+        verified_at: new Date().toISOString(),
+        verified_by: read.generatedBy,
+      })
+      .eq('id', doc.id)
+    if (saveError) console.error('verifyCandidateDocuments could not save a verdict', saveError)
+
+    results.push({ id: doc.id, name, check })
+  }
+
+  // Every one of them came back unread. That is the no-model state, not a
+  // per-document failure, and saying so once is more use than saying it four times.
+  if (!sawAModel && pending.length > 0 && results.every((r) => r.skipped === 'no-model')) {
+    return { ok: false, reason: 'no-model' }
+  }
+
+  return { ok: true, results, checked, attention, already }
+}
+
+export function verifyFailureMessage(reason: 'no-candidate' | 'no-documents' | 'no-model' | 'save-failed'): string {
+  switch (reason) {
+    case 'no-candidate':
+      return 'That tutor is gone.'
+    case 'no-documents':
+      return 'There are no educational documents on this profile.'
+    case 'no-model':
+      return 'No reader is configured, so nothing was checked. The documents are still there to open.'
+    case 'save-failed':
+      return 'They were read, but the result could not be saved. Try again.'
   }
 }

@@ -11,6 +11,8 @@ import { prepaymentStage } from '@/lib/money/prepayment'
 import { formatEtb } from '@/lib/money/commission'
 import { DestinationForm } from './destination-form'
 import { CvReadingPanel } from './cv-reading'
+import { DocumentsCard, type DocumentRow } from './documents-card'
+import type { DocumentCheck } from '@/lib/candidates/documents'
 import { READABLE_MIME } from '@/lib/candidates/files'
 import type { CvReading } from '@/lib/candidates/cv'
 
@@ -50,17 +52,19 @@ export default async function TutorPage({ params }: { params: Promise<{ id: stri
   // prefix. Signed one by one: a link that outlives the page is a leak.
   const { data: documentRows } = await db
     .from('candidate_documents')
-    .select('id, path, file_name, mime')
+    .select('id, path, file_name, mime, verification')
     .eq('candidate_id', c.id)
     .order('created_at', { ascending: true })
 
-  const documents: { id: number; name: string; url: string | null }[] = []
+  const documents: DocumentRow[] = []
   for (const row of documentRows ?? []) {
     const { data } = await db.storage.from('cvs').createSignedUrl(row.path as string, 60 * 10)
     documents.push({
       id: row.id as number,
       name: (row.file_name as string) ?? 'Document',
       url: data?.signedUrl ?? null,
+      check: (row.verification ?? null) as DocumentCheck | null,
+      readable: READABLE_MIME.test((row.mime as string) ?? ''),
     })
   }
 
@@ -186,26 +190,7 @@ export default async function TutorPage({ params }: { params: Promise<{ id: stri
         )}
       </Card>
 
-      <Card className="p-4">
-        <CardHead title="Educational documents" className="mb-2" />
-        {documents.length === 0 ? (
-          <p className="text-sm text-neutral-500">None sent.</p>
-        ) : (
-          <ul className="space-y-1">
-            {documents.map((d) => (
-              <li key={d.id}>
-                {d.url ? (
-                  <a href={d.url} target="_blank" rel="noreferrer" className="text-sm text-blue-700 underline underline-offset-2">
-                    {d.name} ↗
-                  </a>
-                ) : (
-                  <span className="text-sm text-neutral-500">{d.name} — could not be opened</span>
-                )}
-              </li>
-            ))}
-          </ul>
-        )}
-      </Card>
+      <DocumentsCard candidateId={c.id} documents={documents} />
 
       {/* Where the money goes, and what they owe. The account is shown in full
           rather than masked: this is the page the operator copies it from to

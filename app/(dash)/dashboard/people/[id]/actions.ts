@@ -3,7 +3,9 @@
 import { revalidatePath } from 'next/cache'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { checkAccount, checkBankName, PAYOUT_PROVIDERS } from '@/lib/candidates/payout-details'
-import { readCandidateCv, readFailureMessage } from '@/lib/candidates/reading'
+import {
+  readCandidateCv, readFailureMessage, verifyCandidateDocuments, verifyFailureMessage,
+} from '@/lib/candidates/reading'
 import type { ActionState } from '@/components/ui/action-form'
 
 export type DestinationState = { error?: string; ok?: string }
@@ -110,4 +112,46 @@ export async function readCv(_prev: ActionState, formData: FormData): Promise<Ac
   if (parts.length === 0) parts.push('nothing new — it agrees with the profile')
 
   return { ok: `Read: ${parts.join(', ')}.` }
+}
+
+/**
+ * Check the educational documents against what the tutor answered.
+ *
+ * A button, like reading the CV, and for the same reason — this is the same act
+ * on the same page, sharing step 5's budget rather than opening a new one.
+ *
+ * It reports and never corrects. A document that does not back what somebody
+ * answered is a thing for the operator to look at with the file open beside it;
+ * `candidates.education` stays their own answer either way.
+ */
+export async function checkDocuments(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const candidateId = Number(formData.get('candidateId'))
+  if (!candidateId) return { error: 'No tutor.' }
+
+  const outcome = await verifyCandidateDocuments(candidateId, {
+    force: formData.get('force') === '1',
+  })
+
+  if (!outcome.ok) return { error: verifyFailureMessage(outcome.reason) }
+
+  revalidatePath(`/dashboard/people/${candidateId}`)
+
+  const { checked, attention, results } = outcome
+  const unreadable = results.filter((r) => r.skipped).length
+
+  if (checked === 0) {
+    return unreadable > 0
+      ? { error: `Nothing could be read — ${unreadable} ${unreadable === 1 ? 'file' : 'files'} in a format no reader takes.` }
+      : { ok: 'Every document has already been checked.' }
+  }
+
+  const parts = [`Checked ${checked} ${checked === 1 ? 'document' : 'documents'}`]
+  parts.push(
+    attention > 0
+      ? `${attention} ${attention === 1 ? 'needs' : 'need'} a look`
+      : 'nothing out of order',
+  )
+  if (unreadable > 0) parts.push(`${unreadable} could not be read`)
+
+  return { ok: `${parts.join(', ')}.` }
 }

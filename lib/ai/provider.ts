@@ -1,9 +1,13 @@
 import { env } from '@/lib/env'
-import type { AiProvider, Answer, CvFile, CvRead, JobFields, PostDraft, Question } from './types'
-import { templateProvider, writePostTemplate, answerQuestionTemplate, parseCvTemplate } from './providers/template'
+import type {
+  AiProvider, Answer, CvFile, CvRead, DocumentRead, JobFields, PostDraft, Question,
+} from './types'
+import {
+  templateProvider, writePostTemplate, answerQuestionTemplate, parseCvTemplate, verifyDocumentTemplate,
+} from './providers/template'
 import { geminiProvider } from './providers/gemini'
 
-export type { AiProvider, Answer, CvFile, CvRead, JobFields, PostDraft, Question }
+export type { AiProvider, Answer, CvFile, CvRead, DocumentRead, JobFields, PostDraft, Question }
 
 /**
  * The ONLY place a model is called. Nothing else in the codebase imports a
@@ -72,6 +76,26 @@ export async function parseCv(file: CvFile): Promise<CvRead> {
   } catch (err) {
     console.error(`ai provider "${provider.name}" failed on parseCv, reading nothing`, err)
     return parseCvTemplate()
+  }
+}
+
+/**
+ * Read one educational document. Never throws, operator-triggered like the CV.
+ *
+ * This shares step 5's budget rather than opening a new one. It is the same
+ * act — reading what a tutor uploaded, on a button, on a profile the operator
+ * already has open — and the fallback is the same: with no model the documents
+ * are files he opens himself, exactly as they were.
+ */
+export async function verifyDocument(file: CvFile): Promise<DocumentRead> {
+  const provider = getProvider()
+  if (provider.name === 'template') return verifyDocumentTemplate()
+
+  try {
+    return await provider.verifyDocument(file)
+  } catch (err) {
+    console.error(`ai provider "${provider.name}" failed on verifyDocument, reading nothing`, err)
+    return verifyDocumentTemplate()
   }
 }
 
