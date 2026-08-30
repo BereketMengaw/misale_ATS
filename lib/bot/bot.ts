@@ -19,7 +19,8 @@ import { recordCommissionDecision } from '@/lib/hiring/service'
 import { markTalentApplied } from '@/lib/talent/service'
 import { entryById } from './answers/knowledge'
 import { answerFor, looksLikeAQuestion } from './answers/service'
-import { detectIntent } from './answers/intent'
+import { detectIntent, isLeavingNotice } from './answers/intent'
+import { recordQuitNotice } from '@/lib/notices/service'
 
 let cached: Bot | null = null
 
@@ -212,6 +213,11 @@ function register(bot: Bot) {
     // Most of what arrives is not a question. Answering it out of the
     // knowledge base told 58% of everyone who ever wrote in that we had no
     // answer for them — when what they said was "I want to apply".
+    // Somebody saying they are stopping — not asking what would happen if they
+    // did. Filed for the operator, then answered here like anything else, so
+    // nobody is left waiting on a person.
+    if (isLeavingNotice(text)) await recordQuitNotice(ctx.from.id, text)
+
     if (await handleIntent(ctx, text)) return
 
     if (!looksLikeAQuestion(text)) {

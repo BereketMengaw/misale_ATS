@@ -32,3 +32,23 @@ export async function markSent(formData: FormData): Promise<void> {
   revalidatePath('/dashboard')
   revalidatePath('/dashboard/money')
 }
+
+/**
+ * The operator has spoken to the tutor and started finding a replacement.
+ * Takes the notice off Today; the row stays, so the history is intact.
+ */
+export async function markQuitNoticeHandled(formData: FormData): Promise<void> {
+  const id = Number(formData.get('noticeId'))
+  if (!Number.isFinite(id)) return
+
+  const supabase = await supabaseServer()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return
+
+  await supabase
+    .from('quit_notices')
+    .update({ handled_at: new Date().toISOString(), handled_by: user.id })
+    .eq('id', id)
+
+  revalidatePath('/dashboard')
+}

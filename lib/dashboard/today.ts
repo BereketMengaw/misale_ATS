@@ -4,6 +4,7 @@ import { isOverdue } from '@/lib/money/invoice'
 import { formatEtb } from '@/lib/money/commission'
 import { offerTerms } from '@/lib/ui/labels'
 import { genderExcluded } from '@/lib/scoring/rank'
+import { openQuitNotices } from '@/lib/notices/service'
 
 /**
  * What is waiting on the operator, gathered from wherever it happens to live.
@@ -30,6 +31,7 @@ export type Decision =
   | { kind: 'blocked'; key: string; title: string; detail: string; jobId: number }
   | { kind: 'publish'; key: string; title: string; detail: string; jobId: number }
   | { kind: 'chase'; key: string; title: string; detail: string; invoiceId: number; late: boolean }
+  | { kind: 'quit'; key: string; title: string; detail: string; noticeId: number; said: string; phone: string | null }
 
 export type Today = {
   sendables: Sendable[]
@@ -193,6 +195,20 @@ export const loadToday = cache(async function loadToday(): Promise<Today> {
         detail: `${client?.full_name ?? 'Parent'} · ${formatEtb(Number(inv.gross_cents))} ETB${late ? ` · ${lateBy} day${lateBy === 1 ? '' : 's'} late` : ` · due ${inv.due_on}`}`,
         invoiceId: inv.id,
         late,
+      })
+    }
+
+    // A family about to lose their tutor outranks everything else here: every
+    // other row on Today can wait a day, and this one cannot.
+    for (const notice of await openQuitNotices()) {
+      decisions.unshift({
+        kind: 'quit',
+        key: `quit-${notice.id}`,
+        title: `${notice.tutorName ?? 'A tutor'} says they are stopping`,
+        detail: notice.job ?? 'placement unknown',
+        noticeId: notice.id,
+        said: notice.message,
+        phone: notice.tutorPhone,
       })
     }
 

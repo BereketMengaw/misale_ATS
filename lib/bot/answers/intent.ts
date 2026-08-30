@@ -52,6 +52,25 @@ const WANTS_TO_APPLY =
 const PICKS_FROM_A_LIST =
   /\b(?:the\s+)?(?:first|second|third|last|1st|2nd|3rd)\s*(?:one|option|job|commission\w*)?\b|^(?:this|that)\s*(?:one)?\s*[🙏👍]*$/i
 
+/**
+ * Somebody saying they are stopping, as opposed to asking what would happen if
+ * they did. "What if I want to stop" is a question; "I want to stop" is a
+ * family about to lose their tutor.
+ *
+ * Deliberately narrow. A false positive puts a placement on the operator's
+ * desk that is not ending, and the cost of that is his attention.
+ */
+const HYPOTHETICAL = /^(?:what if|if |can i|could i|is it (?:ok|okay|possible)|what happens|suppose)/i
+
+const SAYS_THEY_ARE_STOPPING =
+  /\b(?:i (?:want to |wanna |have to |need to |will |am going to |'?m going to )?(?:stop|quit|leave|resign|discontinue)\b|i (?:can'?t|cannot|won'?t) (?:continue|go on|teach|do (?:it|this))\b|i(?:'?m| am)\s+(?:stopping|quitting|leaving|resigning)\b|i (?:will|want to) stop teaching\b)/i
+
+export function isLeavingNotice(text: string): boolean {
+  const t = text.trim()
+  if (HYPOTHETICAL.test(t)) return false
+  return SAYS_THEY_ARE_STOPPING.test(t)
+}
+
 /** "Is it still open?", "any new jobs?" — about a posting, not about policy. */
 const ASKS_IF_OPEN =
   /\b(?:still (?:available|open|there|on)|is (?:it|this) (?:available|open|closed|taken|filled)|already (?:taken|filled|closed)|anything new|any new (?:job|post)|new (?:job|post)s?\b)/i

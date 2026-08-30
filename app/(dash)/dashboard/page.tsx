@@ -4,7 +4,7 @@ import { outboxPurposeLabel } from '@/lib/ui/labels'
 import { SendCard } from '@/components/send-card'
 import { Button } from '@/components/ui/button'
 import { ActionForm, Badge, Card, CardHead, ErrorNote, LinkButton, PageHeader, PageShell, Row, Rows } from '@/components/ui'
-import { markSent } from './actions'
+import { markSent, markQuitNoticeHandled } from './actions'
 import { hire, presentTop } from './jobs/actions'
 import { queueMessage } from './money/actions'
 
@@ -57,6 +57,20 @@ export default async function TodayPage() {
                     <p className="mt-1 text-xs text-neutral-500">
                       <span className="font-medium text-neutral-700">They will be told:</span> {d.terms}
                     </p>
+                  )}
+                  {d.kind === 'quit' && (
+                    <>
+                      {/* Their own words: "next month" and "I stopped
+                          yesterday" are the same row otherwise. */}
+                      <p className="mt-1 text-xs text-neutral-500">
+                        <span className="font-medium text-neutral-700">They said:</span> “{d.said}”
+                      </p>
+                      {d.phone && (
+                        <p className="mt-0.5 text-xs text-neutral-500">
+                          <a className="underline" href={`tel:${d.phone}`}>{d.phone}</a>
+                        </p>
+                      )}
+                    </>
                   )}
                 </div>
                 <DecisionAction decision={d} />
@@ -120,6 +134,17 @@ function SendRow({ message, open }: { message: Sendable; open: boolean }) {
 /** Each decision carries exactly one button, and it is the obvious one. */
 function DecisionAction({ decision }: { decision: Decision }) {
   switch (decision.kind) {
+    case 'quit':
+      // A plain form, like Mark sent: this records that it is handled rather
+      // than driving a step of the pipeline, so there is no state to return.
+      return (
+        <form action={markQuitNoticeHandled}>
+          <input type="hidden" name="noticeId" value={decision.noticeId} />
+          <Button variant="primary" size="sm" pendingLabel="Marking…">
+            I have dealt with it
+          </Button>
+        </form>
+      )
     case 'hire':
       return (
         <ActionForm action={hire} fields={{ id: decision.jobId, applicationId: decision.applicationId }}>

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { isCourtesy, isWorthReading, mine, picksFromAList, wantsToApply } from '@/lib/mining/questions'
-import { detectIntent } from '@/lib/bot/answers/intent'
+import { detectIntent, isLeavingNotice } from '@/lib/bot/answers/intent'
 
 describe('what counts as a question worth reading', () => {
   it('keeps a real question', () => {
@@ -152,6 +152,33 @@ describe('what the bot does before it tries to answer', () => {
     for (const t of ['how much will i be paid', 'what is the pre payment',
                      'do i need a cv', 'why do you need my phone number']) {
       expect(detectIntent(t), t).toBeNull()
+    }
+  })
+})
+
+// A family about to lose their tutor is the one message that must reach the
+// operator. Narrow on purpose: a false positive puts a placement on his desk
+// that is not ending, and the cost of that is his attention.
+describe('noticing that someone is actually stopping', () => {
+  it('hears somebody saying they are going to stop', () => {
+    for (const t of ['i want to stop', 'I am stopping next week', 'i quit',
+                     "i can't continue", 'I have to leave the job',
+                     'I will stop teaching', "i'm leaving"]) {
+      expect(isLeavingNotice(t), t).toBe(true)
+    }
+  })
+
+  it('does not hear a question about stopping as a notice', () => {
+    for (const t of ['what if i want to stop', 'what if i stopped after i started tutoring',
+                     'can i stop in the middle', 'is it ok to stop', 'what happens if i quit',
+                     'if i stop do i pay anything']) {
+      expect(isLeavingNotice(t), t).toBe(false)
+    }
+  })
+
+  it('ignores anything not about leaving', () => {
+    for (const t of ['how much will i be paid', 'stop messaging me', 'i want to apply']) {
+      expect(isLeavingNotice(t), t).toBe(false)
     }
   })
 })
