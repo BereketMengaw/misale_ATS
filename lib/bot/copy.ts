@@ -28,6 +28,28 @@ export const copy = {
 
     /** Asked something in the middle of registering. Answer, then point back. */
     backToRegistration: 'Now — back to your registration. Tap the buttons above to carry on.',
+
+    /**
+     * The commonest message anyone sends: 781 of 1,350 people in the real
+     * history said some version of "I want to apply". Saying it is not
+     * applying, so this hands them the thing that is.
+     */
+    wantsToApply: 'Here is what is open. Tap the one you want and I will take you through it.',
+    wantsToApplyNothingOpen:
+      'Nothing is open this minute. Register and I will message you here the moment a job fits you — you will not have to keep checking.',
+
+    /** "Is it still open?" — answered from the live list rather than a promise. */
+    stillOpen: 'These are open right now. Anything not listed has been filled.',
+    stillOpenNothing: 'Nothing is open right now. Register and I will message you when a job fits.',
+
+    /**
+     * "The first one." A reply to a message the bot did not send and cannot
+     * see, so it says so rather than guessing which one they meant.
+     */
+    picksFromAList: 'I am not sure which one you mean — tap it below and I will know.',
+
+    /** "Okay thank you." Worth a reply, but not an answer. */
+    courtesy: 'Any time. Ask me anything else whenever you need to.',
   },
 
   applyingFor: 'This job:',

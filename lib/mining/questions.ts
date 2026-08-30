@@ -6,6 +6,11 @@
  * this can be tested without either.
  */
 import { normalize, retrieve } from '@/lib/bot/answers/retrieve'
+// The bot routes on these same matchers, so what the miner sets aside and what
+// the bot acts on cannot drift apart.
+import { isCourtesy, picksFromAList, wantsToApply } from '@/lib/bot/answers/intent'
+
+export { isCourtesy, picksFromAList, wantsToApply }
 
 export type InboundMessage = {
   /** What they typed. */
@@ -45,50 +50,6 @@ export type Report = {
 /** Below this a match is one incidental word — see MIN_SCORE in retrieve.ts. */
 const CONFIDENT = 4
 
-/**
- * What people say that is not a question. Courtesies and bare agreement are
- * most of what arrives: over a real export, "Thank you" and its variants came
- * from more people than any genuine question.
- *
- * Matched word by word rather than as whole phrases, because they stack —
- * "Okay Thank you", "Ok Thanks 🙏", "Eshi Thank you" — and a phrase list only
- * ever catches the spellings someone happened to think of.
- */
-const COURTESY_WORDS = new Set([
-  'ok', 'okay', 'oky', 'okey', 'k', 'yes', 'yeah', 'ya', 'yep', 'no', 'nope',
-  'sure', 'fine', 'good', 'great', 'alright', 'thanks', 'thank', 'thankyou',
-  'thx', 'tnx', 'welcome', 'hi', 'hello', 'hey', 'dear', 'sir', 'madam',
-  'morning', 'afternoon', 'evening', 'night', 'problem', 'course', 'got',
-  'noted', 'understood', 'same', 'too', 'please', 'sorry', 'np', 'well',
-  'cool', 'nice', 'perfect', 'exactly', 'right', 'correct', 'bless', 'god',
-  // Amharic in Latin script, as people actually type it
-  'eshi', 'selam', 'nw', 'new', 'ameseginalehu', 'betam',
-  // filler that carries no question on its own
-  'i', 'you', 'it', 'its', 'is', 'was', 'am', 'are', 'do', 'did', 'does',
-  'can', 'will', 'would', 'the', 'a', 'my', 'me', 'so', 'and', 'but', 'there',
-  'how', 'much', 'very', 'brother', 'sister', 'bro', 'of', 'to', 'that', 'u',
-  'not', 'really', 'deal', 'understand', 'lot', 'have', 'been',
-  // normalize() turns an apostrophe into a space, so "It's" arrives as "it s".
-  's', 'm', 't', 're', 'll', 've',
-])
-
-/**
- * The commonest message of all is somebody saying they want the job. That is
- * an intention to act, not a question to answer, and it needs a different
- * response from the bot — so it is counted separately rather than reported as
- * an answer nobody has written.
- */
-const WANTS_TO_APPLY =
-  /\bapply(?:ing)?\b|\binterested\b|\bi (?:want|wanna|need)\b.*\b(?:job|this|work|it)\b|\bi'?m in\b/i
-
-/**
- * Someone choosing from a list you sent: "the first one", "this one", "I agree
- * with the first". Meaningless without the message it answers, which is what
- * makes it interesting — the bot has no memory of the previous turn.
- */
-const PICKS_FROM_A_LIST =
-  /\b(?:the\s+)?(?:first|second|third|last|1st|2nd|3rd)\s*(?:one|option|job|commission\w*)?\b|^(?:this|that)\s*(?:one)?\s*[🙏👍]*$/i
-
 /** A question someone asked, not a command, a phone number, or a forwarded post. */
 export function isWorthReading(body: string): boolean {
   const t = body.trim()
@@ -99,16 +60,6 @@ export function isWorthReading(body: string): boolean {
   if ((t.match(/\n/g) ?? []).length >= 3) return false
   return true
 }
-
-/** True when nothing in the message is more than politeness or agreement. */
-export function isCourtesy(text: string): boolean {
-  const words = normalize(text).split(' ').filter(Boolean)
-  if (words.length === 0 || words.length > 6) return false
-  return words.every((w) => COURTESY_WORDS.has(w))
-}
-
-export const wantsToApply = (t: string) => WANTS_TO_APPLY.test(t)
-export const picksFromAList = (t: string) => PICKS_FROM_A_LIST.test(t.trim())
 
 export function mine(messages: InboundMessage[]): Report {
   const asked = new Map<string, { text: string; count: number; people: Set<string> }>()

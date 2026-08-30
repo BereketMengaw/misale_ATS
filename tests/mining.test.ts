@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { isCourtesy, isWorthReading, mine, picksFromAList, wantsToApply } from '@/lib/mining/questions'
+import { detectIntent } from '@/lib/bot/answers/intent'
 
 describe('what counts as a question worth reading', () => {
   it('keeps a real question', () => {
@@ -96,5 +97,45 @@ describe('mining real conversations', () => {
       asked('is there a canteen at the house', 'sara'),
     ])
     expect(report.uncovered[0].text).toContain('canteen')
+  })
+})
+
+describe('what the bot does before it tries to answer', () => {
+  it('routes the commonest message of all to the open jobs', () => {
+    for (const t of ['i want to apply', 'I want to apply for this job', "I'm interested",
+                     'Can i apply', 'Applying for this', 'I need this job']) {
+      expect(detectIntent(t), t).toBe('apply')
+    }
+  })
+
+  it('routes "is it still open" to the live list', () => {
+    for (const t of ['Is it still available', 'Is this still open', 'Is it closed?',
+                     'Anything new?', 'any new jobs']) {
+      expect(detectIntent(t), t).toBe('job-status')
+    }
+  })
+
+  it('knows a reply to a list it cannot see', () => {
+    for (const t of ['The first one', 'the 2nd one.', 'I agree with the first one']) {
+      expect(detectIntent(t), t).toBe('picks-from-a-list')
+    }
+  })
+
+  it('answers a courtesy as a courtesy', () => {
+    for (const t of ['Okay Thank you', 'Ok Thanks 🙏', 'Good morning']) {
+      expect(detectIntent(t), t).toBe('courtesy')
+    }
+  })
+
+  // Applying wins: someone doing both is applying, not asking.
+  it('prefers the intention to act over the question wrapped around it', () => {
+    expect(detectIntent('is this still open? i want to apply')).toBe('apply')
+  })
+
+  it('leaves a real question to the answerer', () => {
+    for (const t of ['how much will i be paid', 'what is the pre payment',
+                     'do i need a cv', 'why do you need my phone number']) {
+      expect(detectIntent(t), t).toBeNull()
+    }
   })
 })

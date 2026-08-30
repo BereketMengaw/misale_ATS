@@ -19,6 +19,7 @@ import { recordCommissionDecision } from '@/lib/hiring/service'
 import { markTalentApplied } from '@/lib/talent/service'
 import { entryById, KNOWLEDGE } from './answers/knowledge'
 import { answerFor, looksLikeAQuestion } from './answers/service'
+import { detectIntent } from './answers/intent'
 
 let cached: Bot | null = null
 
@@ -203,7 +204,17 @@ function register(bot: Bot) {
     }
 
     const text = ctx.message.text?.trim()
-    if (!text || !looksLikeAQuestion(text)) {
+    if (!text) {
+      await reply(ctx, copy.menu, mainMenu())
+      return
+    }
+
+    // Most of what arrives is not a question. Answering it out of the
+    // knowledge base told 58% of everyone who ever wrote in that we had no
+    // answer for them — when what they said was "I want to apply".
+    if (await handleIntent(ctx, text)) return
+
+    if (!looksLikeAQuestion(text)) {
       await reply(ctx, copy.menu, mainMenu())
       return
     }
@@ -389,4 +400,42 @@ async function reply(ctx: Context, text: string, keyboard?: InlineKeyboard, pars
 /** The three topics offered when there is nothing better to offer. */
 function defaultTopics() {
   return KNOWLEDGE.filter((e) => ['how-it-works', 'pay', 'hear-back'].includes(e.id))
+}
+
+/**
+ * Acts on what someone meant, when they were not asking a question. Returns
+ * false when it was a question after all, and the answerer takes it.
+ */
+async function handleIntent(ctx: Context, text: string): Promise<boolean> {
+  const intent = detectIntent(text)
+  if (!intent) return false
+
+  // Saying you want to apply is not applying. Hand over the thing that is.
+  if (intent === 'apply' || intent === 'job-status') {
+    const jobs = await listOpenJobs()
+    if (jobs.length === 0) {
+      await reply(
+        ctx,
+        intent === 'apply' ? copy.answers.wantsToApplyNothingOpen : copy.answers.stillOpenNothing,
+        registerKeyboard(),
+      )
+      return true
+    }
+    await reply(
+      ctx,
+      intent === 'apply' ? copy.answers.wantsToApply : copy.answers.stillOpen,
+      openJobsKeyboard(jobs),
+    )
+    return true
+  }
+
+  // "The first one" — a reply to a list the bot did not send and cannot see.
+  if (intent === 'picks-from-a-list') {
+    const jobs = await listOpenJobs()
+    await reply(ctx, copy.answers.picksFromAList, jobs.length ? openJobsKeyboard(jobs) : mainMenu())
+    return true
+  }
+
+  await reply(ctx, copy.answers.courtesy)
+  return true
 }
