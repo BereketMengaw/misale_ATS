@@ -129,6 +129,19 @@ export async function answerQuestion(question: Question): Promise<Answer> {
     return fallback
   }
 
+  // Answered, but from no fact it can name. Asked "what if I want to stop
+  // teaching", the model reached the entry about deleting your data — a fact
+  // about a similar word, not about the question — and reported it covered, so
+  // the gap looked answered instead of showing up as one to fill.
+  if (answer.covered && answer.usedFactIds) {
+    const known = new Set(question.facts.map((f) => f.id))
+    const cited = answer.usedFactIds.filter((id) => known.has(id))
+    if (cited.length === 0) {
+      console.error(`ai provider "${provider.name}" answered citing no fact; treating as uncovered`)
+      return { text: '', covered: false, generatedBy: answer.generatedBy }
+    }
+  }
+
   // The model read the facts and says they do not answer the question. Trust
   // it: keyword retrieval matches on words, not meaning, and its top hit for
   // "will I still be paid if the student stops coming" is the entry about

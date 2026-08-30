@@ -41,11 +41,13 @@ const SYSTEM = [
   '- At most 60 words. Warm and direct, like a colleague answering quickly.',
   '- Answer the question that was actually asked; do not recite every fact you were given.',
   '- You may be given more facts than the question needs. Use the ones that apply and ignore the rest.',
+  '- List in usedFactIds the id of every fact your answer relies on. If that list would be empty, the FACTS did not answer the question: set covered to false.',
+  '- A fact that is merely about a similar word does not count. "What if I want to stop teaching" is not answered by a fact about deleting your data.',
 ].join('\n')
 
 function prompt(question: Question): string {
   const facts = question.facts
-    .map((f, i) => `FACT ${i + 1} (${f.topic})\n${f.answer}`)
+    .map((f) => `FACT id=${f.id} (${f.topic})\n${f.answer}`)
     .join('\n\n')
 
   return [
@@ -59,7 +61,7 @@ function prompt(question: Question): string {
   ].join('\n')
 }
 
-type GeminiReply = { covered: boolean; answer: string }
+type GeminiReply = { covered: boolean; answer: string; usedFactIds?: string[] }
 
 async function generate(question: Question, apiKey: string): Promise<GeminiReply | null> {
   const controller = new AbortController()
@@ -82,8 +84,9 @@ async function generate(question: Question, apiKey: string): Promise<GeminiReply
             properties: {
               covered: { type: 'BOOLEAN' },
               answer: { type: 'STRING' },
+              usedFactIds: { type: 'ARRAY', items: { type: 'STRING' } },
             },
-            required: ['covered', 'answer'],
+            required: ['covered', 'answer', 'usedFactIds'],
           },
         },
       }),
@@ -136,6 +139,7 @@ export const geminiProvider: AiProvider = {
     return {
       text: reply.answer.trim(),
       covered: reply.covered && reply.answer.trim().length > 0,
+      usedFactIds: Array.isArray(reply.usedFactIds) ? reply.usedFactIds : [],
       generatedBy: 'gemini',
     }
   },

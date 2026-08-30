@@ -45,6 +45,12 @@ export type Answer = {
   text: string
   /** False when the facts did not cover the question; the bot then says so. */
   covered: boolean
+  /**
+   * Which facts the answer was actually built from. A provider that claims to
+   * have answered but names no fact has written something from nothing, which
+   * `provider.ts` treats as not covered.
+   */
+  usedFactIds?: string[]
   /** Provider name, or 'template'. Recorded on the row so it is auditable. */
   generatedBy: string
 }
