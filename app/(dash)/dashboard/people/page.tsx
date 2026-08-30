@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { supabaseAdmin } from '@/lib/supabase/admin'
-import { EDUCATION, EXPERIENCE, labelFor } from '@/lib/candidates/options'
+import { DEFAULT_AREAS, EDUCATION, EXPERIENCE, GRADE_BANDS, labelFor } from '@/lib/candidates/options'
 import {
   Badge,
   Card,
@@ -27,9 +27,18 @@ const PAGE = 100
 export default async function PeoplePage({
   searchParams,
 }: {
-  searchParams: Promise<{ tab?: string; q?: string }>
+  searchParams: Promise<{
+    tab?: string
+    q?: string
+    area?: string
+    grade?: string
+    bot?: string
+    cv?: string
+    sort?: string
+  }>
 }) {
-  const { tab = 'tutors', q = '' } = await searchParams
+  const { tab = 'tutors', q = '', area = '', grade = '', bot = '', cv = '', sort = 'completeness' } =
+    await searchParams
   const db = supabaseAdmin()
   const needle = q.trim().toLowerCase()
 
@@ -48,11 +57,34 @@ export default async function PeoplePage({
     })
   if (tutorSearch) tutorQuery = tutorQuery.or(tutorSearch)
 
+  // Narrowing, all of it in Postgres. Searching by name only works when you
+  // already know who you are looking for; picking a job's area and grade is
+  // how you find out who could do it.
+  if (area === '__none') tutorQuery = tutorQuery.is('area', null)
+  else if (area) tutorQuery = tutorQuery.eq('area', area)
+
+  if (grade) tutorQuery = tutorQuery.contains('grades', [grade])
+
+  // Whether the bot can reach them. 716 came from a form and cannot be
+  // messaged until they open it, which decides whether shortlisting them
+  // does anything at all.
+  if (bot === 'yes') tutorQuery = tutorQuery.not('telegram_id', 'is', null)
+  else if (bot === 'no') tutorQuery = tutorQuery.is('telegram_id', null)
+
+  if (cv === 'yes') tutorQuery = tutorQuery.not('cv_path', 'is', null)
+
+  const ORDER: Record<string, { column: string; ascending: boolean }> = {
+    completeness: { column: 'completeness', ascending: false },
+    newest: { column: 'created_at', ascending: false },
+    name: { column: 'full_name', ascending: true },
+  }
+  const order = ORDER[sort] ?? ORDER.completeness
+
   const [
     { data: candidates, error: tutorError, count: tutorTotal },
     { data: clients, error: parentError },
   ] = await Promise.all([
-    tutorQuery.order('completeness', { ascending: false }).limit(PAGE),
+    tutorQuery.order(order.column, { ascending: order.ascending }).limit(PAGE),
     db.from('clients').select('id, full_name, phone, telegram_id, area').order('created_at', { ascending: false }),
   ])
 
@@ -106,16 +138,60 @@ export default async function PeoplePage({
           </Tab>
         </div>
 
-        <form className="flex items-center gap-2">
+        <form className="flex flex-wrap items-center gap-2">
           {onParents && <input type="hidden" name="tab" value="parents" />}
           <input
             name="q"
             defaultValue={q}
             aria-label="Search people"
-            placeholder={onParents ? 'Search name or phone' : 'Search name, area or subject'}
-            className="w-72 rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-sm placeholder:text-neutral-400 focus:border-neutral-900 focus:outline-none"
+            placeholder={onParents ? 'Search name or phone' : 'Search name, phone or area'}
+            className="w-64 rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-sm placeholder:text-neutral-400 focus:border-neutral-900 focus:outline-none"
           />
-          <Button variant="secondary" size="sm">Search</Button>
+
+          {/* One GET form, so every filter is in the URL and a useful view can
+              be bookmarked or sent to somebody. No client state to go stale. */}
+          {!onParents && (
+            <>
+              <Select name="area" value={area} label="Area">
+                <option value="">Any area</option>
+                {DEFAULT_AREAS.map((a) => (
+                  <option key={a} value={a}>{a}</option>
+                ))}
+                <option value="__none">No area given</option>
+              </Select>
+
+              <Select name="grade" value={grade} label="Grades">
+                <option value="">Any grade</option>
+                {GRADE_BANDS.map((g) => (
+                  <option key={g.value} value={g.value}>{g.label}</option>
+                ))}
+              </Select>
+
+              <Select name="bot" value={bot} label="On the bot">
+                <option value="">Anyone</option>
+                <option value="yes">On the bot</option>
+                <option value="no">Not on the bot</option>
+              </Select>
+
+              <Select name="cv" value={cv} label="CV">
+                <option value="">CV or not</option>
+                <option value="yes">Has a CV</option>
+              </Select>
+
+              <Select name="sort" value={sort} label="Sort by">
+                <option value="completeness">Fullest profile</option>
+                <option value="newest">Newest first</option>
+                <option value="name">By name</option>
+              </Select>
+            </>
+          )}
+
+          <Button variant="secondary" size="sm">Apply</Button>
+          {!onParents && (area || grade || bot || cv || q) && (
+            <Link href="/dashboard/people" className="text-xs text-neutral-500 underline underline-offset-2">
+              Clear
+            </Link>
+          )}
         </form>
       </div>
 
@@ -124,9 +200,17 @@ export default async function PeoplePage({
       {!onParents &&
         !error &&
         (tutors.length === 0 ? (
-          <EmptyState>
-            {needle
-              ? `No tutor matches “${q}”.`
+          <EmptyState
+            action={
+              needle || area || grade || bot || cv ? (
+                <Link href="/dashboard/people" className="text-sm underline underline-offset-2">
+                  Clear the filters
+                </Link>
+              ) : undefined
+            }
+          >
+            {needle || area || grade || bot || cv
+              ? 'No tutor matches that. Widening one of the filters usually finds somebody.'
               : 'Nobody yet. Tutors arrive when someone taps Apply on a published job.'}
           </EmptyState>
         ) : (
@@ -211,6 +295,30 @@ export default async function PeoplePage({
           </Card>
         ))}
     </PageShell>
+  )
+}
+
+/** A filter that remembers what it was set to, because it is in the URL. */
+function Select({
+  name,
+  value,
+  label,
+  children,
+}: {
+  name: string
+  value: string
+  label: string
+  children: React.ReactNode
+}) {
+  return (
+    <select
+      name={name}
+      defaultValue={value}
+      aria-label={label}
+      className="rounded-md border border-neutral-300 bg-white px-2 py-1.5 text-sm focus:border-neutral-900 focus:outline-none"
+    >
+      {children}
+    </select>
   )
 }
 

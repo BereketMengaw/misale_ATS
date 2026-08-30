@@ -78,6 +78,9 @@ export const DEFAULT_SUBJECTS = [
 export const DEFAULT_AREAS = [
   'Bole', 'Yeka', 'Kirkos', 'Arada', 'Lideta',
   'Addis Ketema', 'Gulele', 'Kolfe Keranio', 'Nifas Silk-Lafto', 'Akaky Kaliti',
+  // Split off from Bole and Yeka in 2020. Fifty-two of the imported tutors
+  // live there and the wizard had no button for it.
+  'Lemi Kura',
 ]
 
 /** What the wizard offers: the wildcard first, then the named subjects. */
