@@ -122,3 +122,22 @@ export async function addDiscoveredChannel(formData: FormData): Promise<void> {
 
   revalidatePath('/dashboard/settings')
 }
+
+/**
+ * When the two sides get each other's number.
+ *
+ * It lived only in the settings table, so changing it meant writing SQL — the
+ * same wall as a job's fields. The rule decides what a parent is told at the
+ * hire, so it belongs where it can be read and changed.
+ */
+export async function setContactRelease(formData: FormData): Promise<void> {
+  const rule = String(formData.get('rule') ?? '')
+  if (!['on_hire', 'after_first_payment', 'never'].includes(rule)) return
+
+  await supabaseAdmin()
+    .from('settings')
+    .upsert({ key: 'contact_release', value: { rule } }, { onConflict: 'key' })
+
+  revalidatePath('/dashboard/settings')
+  revalidatePath('/dashboard/jobs')
+}

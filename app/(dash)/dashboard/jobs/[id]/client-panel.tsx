@@ -28,7 +28,16 @@ export type Client = {
  * The parent paying for the lessons. Needed before a hire can be introduced to
  * anyone, and needed again for an invoice.
  */
-export async function ClientPanel({ job, client }: { job: JobForIntro; client: Client }) {
+export async function ClientPanel({
+  job,
+  client,
+  contactsReleased = false,
+}: {
+  job: JobForIntro
+  client: Client
+  /** The placement has already handed the numbers over, whatever the rule says. */
+  contactsReleased?: boolean
+}) {
   const db = supabaseAdmin()
 
   // One tap by the parent, and every message after it is automatic and free.
@@ -57,11 +66,13 @@ export async function ClientPanel({ job, client }: { job: JobForIntro; client: C
 
     if (tutor) {
       tutorName = tutor.full_name
+      // Once the placement has released contacts, withholding the number here
+      // would hand the parent a worse message than the one already sent.
       intro = introductionAm(
         tutor.full_name ?? 'አስተማሪዎ',
         tutor.phone,
         { subject: job.subject, grade: job.grade, area: job.area, daysPerWeek: job.days_per_week },
-        release === 'on_hire',
+        release === 'on_hire' || contactsReleased,
       )
     }
   }

@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button'
 import { buttonClass } from '@/components/ui/styles'
 import { CopyBox } from '@/components/ui/copy-box'
 import { ChannelForm } from './channel-form'
-import { addDiscoveredChannel, recheckChannel, setChannelActive } from './actions'
+import { addDiscoveredChannel, recheckChannel, setChannelActive, setContactRelease } from './actions'
 
 export const dynamic = 'force-dynamic'
 
@@ -21,7 +21,7 @@ export const dynamic = 'force-dynamic'
 export default async function SettingsPage() {
   const db = supabaseAdmin()
 
-  const [{ data: channels, error }, discovered, health, myPhone, messages] = await Promise.all([
+  const [{ data: channels, error }, discovered, health, myPhone, messages, { data: release }] = await Promise.all([
     db.from('channels').select('*').order('created_at', { ascending: true }),
     discoveredChats(),
     botHealth(),
@@ -31,7 +31,10 @@ export default async function SettingsPage() {
       .select('id, direction, kind, created_at')
       .order('created_at', { ascending: false })
       .limit(10),
+    db.from('settings').select('value').eq('key', 'contact_release').maybeSingle(),
   ])
+
+  const rule = (release?.value as { rule?: string } | null)?.rule ?? 'after_first_payment'
 
   const known = new Set((channels ?? []).map((c) => c.chat_id))
   const available = discovered.filter((d) => !known.has(d.chatId))
@@ -158,6 +161,33 @@ export default async function SettingsPage() {
       </div>
 
       <Card className="p-4">
+        <CardHead
+          title="When each side gets the other's number"
+          aside="Decides what the parent is told at the hire"
+        />
+        <div className="mt-3 flex flex-col gap-2">
+          {CONTACT_RULES.map((option) => (
+            <form action={setContactRelease} key={option.value}>
+              <input type="hidden" name="rule" value={option.value} />
+              <button
+                className={`flex w-full flex-col gap-0.5 rounded-md border p-3 text-left transition-colors ${
+                  rule === option.value
+                    ? 'border-neutral-900 bg-neutral-50'
+                    : 'border-neutral-200 bg-white hover:bg-neutral-50'
+                }`}
+              >
+                <span className="flex items-center gap-2 text-sm font-medium">
+                  {option.label}
+                  {rule === option.value && <Badge tone="green">In use</Badge>}
+                </span>
+                <span className="text-xs text-neutral-500">{option.detail}</span>
+              </button>
+            </form>
+          ))}
+        </div>
+      </Card>
+
+      <Card className="p-4">
         <CardHead title="Bot" />
         {health.ok ? (
           <dl className="mt-2 space-y-1 text-sm text-neutral-600">
@@ -193,6 +223,26 @@ export default async function SettingsPage() {
     </PageShell>
   )
 }
+
+const CONTACT_RULES = [
+  {
+    value: 'on_hire',
+    label: 'At the hire',
+    detail:
+      "The introduction carries the tutor's number, and the tutor is given the parent's. Fastest for everyone, and it trusts both sides not to cut you out of next month.",
+  },
+  {
+    value: 'after_first_payment',
+    label: 'After the first payment',
+    detail:
+      'Both sides wait until the first invoice is paid. Covers the month of highest exposure; until then the bot is the only channel.',
+  },
+  {
+    value: 'never',
+    label: 'Never',
+    detail: 'First names and area only. The bot stays the way lessons are arranged, permanently.',
+  },
+]
 
 function HealthRow({ label, value }: { label: string; value: string }) {
   return (

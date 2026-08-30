@@ -56,7 +56,7 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
         .order('score', { ascending: false }),
       db
         .from('placements')
-        .select('id, status, schedule, starts_on, ends_on, rate_amount, commission_percent, candidates(id, full_name, phone), clients(full_name, phone)')
+        .select('id, status, schedule, starts_on, ends_on, rate_amount, commission_percent, contacts_released_at, candidates(id, full_name, phone), clients(full_name, phone)')
         .eq('job_post_id', jobId)
         .maybeSingle(),
     ])
@@ -255,6 +255,7 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
               hired_application_id: job.hired_application_id,
             }}
             client={client}
+            contactsReleased={Boolean(placement?.contacts_released_at)}
           />
         </Phase>
 
