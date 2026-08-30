@@ -16,7 +16,8 @@
     "mine:export": "tsx --tsconfig tsconfig.json scripts/mine-chats.mts",
     "mine:telegram:all": "MINE_PER_CHAT=0 MINE_CHATS=500 npm run mine:telegram",
     "mine:pairs": "tsx --tsconfig tsconfig.json scripts/mine-pairs.mts",
-    "migrate": "tsx --env-file=.env.local --tsconfig tsconfig.json scripts/migrate.mts"
+    "migrate": "tsx --env-file=.env.local --tsconfig tsconfig.json scripts/migrate.mts",
+    "import:applicants": "tsx --env-file=.env.local --tsconfig tsconfig.json scripts/import-applicants.mts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.5.2",
