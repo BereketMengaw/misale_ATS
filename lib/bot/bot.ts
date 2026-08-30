@@ -24,7 +24,7 @@ import { answerFor, looksLikeAQuestion } from './answers/service'
 import { detectIntent, isLeavingNotice } from './answers/intent'
 import { readSmallTalk, type SmallTalk } from './smalltalk'
 import { standingOf } from './answers/standing'
-import { recordQuitNotice } from '@/lib/notices/service'
+import { fileQuitNoticeFor, recordQuitNotice } from '@/lib/notices/service'
 import { attachFile } from '@/lib/candidates/store'
 import { ACCEPTED_MIME, MAX_UPLOAD_BYTES } from '@/lib/candidates/files'
 
@@ -252,6 +252,32 @@ function register(bot: Bot) {
     await reply(ctx, entry.answer)
   })
 
+  // Which placement they are giving notice on. The id is checked against
+  // their own live placements before anything is written — a button is not a
+  // permission, and the id in one is whatever the update says it is.
+  bot.callbackQuery(/^quit:(\d+)$/, async (ctx) => {
+    await ctx.answerCallbackQuery()
+
+    const session = await getSession(ctx.from.id)
+    const pending = session?.data?.pendingQuit as { message?: string } | undefined
+    const outcome = await fileQuitNoticeFor(
+      ctx.from.id,
+      Number(ctx.match![1]),
+      pending?.message ?? 'They tapped which placement they are stopping.',
+    )
+
+    if (outcome.kind === 'filed') {
+      await saveSession(ctx.from.id, ctx.chat!.id, { data: { pendingQuit: null } })
+      await reply(ctx, copy.leaving.filed(outcome.job))
+      return
+    }
+    if (outcome.kind === 'already') {
+      await reply(ctx, copy.leaving.already(outcome.job))
+      return
+    }
+    await reply(ctx, copy.leaving.gone, mainMenu())
+  })
+
   // Anything else under menu: is a button that no longer exists.
   bot.callbackQuery(/^menu:(.+)$/, async (ctx) => {
     await ctx.answerCallbackQuery({ text: copy.notReadyYet })
@@ -292,14 +318,17 @@ function register(bot: Bot) {
     // Most of what arrives is not a question. Answering it out of the
     // knowledge base told 58% of everyone who ever wrote in that we had no
     // answer for them — when what they said was "I want to apply".
-    // Somebody saying they are stopping — not asking what would happen if they
-    // did. Filed for the operator, then answered here like anything else, so
-    // nobody is left waiting on a person.
-    if (isLeavingNotice(text)) await recordQuitNotice(ctx.from.id, text)
 
     // Which of several wordings goes out. Climbs by at least one per message,
     // so nobody gets the same sentence twice running.
     const seed = ctx.message.message_id
+
+    // Somebody saying they are stopping. Answered from what the database
+    // already knows rather than from the knowledge base: the bot filed the
+    // notice, so the bot can say it filed it. Only a hypothetical — somebody
+    // with nothing live to leave — falls through to the FAQ entry, which is
+    // written for exactly that person.
+    if (isLeavingNotice(text) && (await handleLeavingNotice(ctx, text, seed))) return
 
     // Intent first: "thanks, I want to apply" is somebody applying, not
     // somebody thanking us.
@@ -560,6 +589,50 @@ async function handleIntent(ctx: Context, text: string): Promise<boolean> {
   // 'courtesy' deliberately falls through. It is the bucket the miner counts,
   // but it is far too coarse to reply from: hello, thank you, sorry and
   // goodbye are all in it. handleSmallTalk() picks the words.
+  return false
+}
+
+/**
+ * Somebody saying they are stopping.
+ *
+ * Returns false only where there is nothing live to leave — a hypothetical, or
+ * somebody who never started — and the FAQ entry is then the right answer, so
+ * the answerer takes it.
+ *
+ * Nothing here routes to a person. It says what was recorded, which is what
+ * the FAQ entry always said in the abstract, said now about their own job.
+ */
+async function handleLeavingNotice(ctx: Context, text: string, seed: number): Promise<boolean> {
+  const outcome = await recordQuitNotice(ctx.from!.id, text)
+
+  if (outcome.kind === 'filed') {
+    await reply(ctx, copy.leaving.filed(outcome.job))
+    return true
+  }
+
+  if (outcome.kind === 'already') {
+    await reply(ctx, copy.leaving.already(outcome.job))
+    return true
+  }
+
+  // Two live placements and no way to tell which they mean. The one question
+  // in this whole path that has to be asked, and it is asked with buttons.
+  //
+  // What they typed is kept on the session, not in the callback: a callback
+  // payload is 64 bytes, and the wording is the part the operator judges the
+  // urgency from.
+  if (outcome.kind === 'which') {
+    await saveSession(ctx.from!.id, ctx.chat!.id, {
+      data: { pendingQuit: { message: text.slice(0, 1000), at: new Date().toISOString() } },
+    })
+    const kb = new InlineKeyboard()
+    for (const p of outcome.placements) kb.text(p.job, `quit:${p.id}`).row()
+    await reply(ctx, copy.leaving.which, kb)
+    return true
+  }
+
+  // 'failed' — the record was lost, but the tutor must still get a real
+  // answer, and the FAQ entry is one. Better a policy than a shrug.
   return false
 }
 

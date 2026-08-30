@@ -99,6 +99,41 @@ export const copy = {
   },
 
   /**
+   * Somebody saying they are stopping.
+   *
+   * The bot used to file the notice, say nothing about it, and then read out
+   * the FAQ entry — "tell us as early as you can before you stop" — at a
+   * person who had just done exactly that. It was the worst reply in the bot:
+   * everything it needed was already in the database, and it answered from a
+   * knowledge base instead.
+   *
+   * None of this promises a reply. It states what was recorded and what the
+   * agency does about it, which is the same thing the FAQ entry always said.
+   */
+  leaving: {
+    /** One live placement, so there was nothing to ask. */
+    filed: (job: string) => [
+      `Noted, and recorded — ${job}.`,
+      '',
+      'That is all you needed to do. Finding the family another tutor is our job, not yours, so there is nothing for you to arrange. What you wrote has been kept as you wrote it, timing and all.',
+    ].join('\n'),
+
+    /** They have said it before and it is still open. Say so; do not re-file. */
+    already: (job: string) =>
+      `You have already told me about ${job}, and it is still on the list — no need to say it twice. There is nothing further for you to do.`,
+
+    /**
+     * More than one live placement. The bot must not guess which, and this is
+     * the one question worth asking, because it is answerable with buttons.
+     */
+    which:
+      'Understood. You are teaching more than one, though, so I do not want to guess at the wrong family — which are you stopping?',
+
+    /** Tapped the wrong thing, or the placement ended in the meantime. */
+    gone: 'I could not find that one among your placements any more. Take another look below.',
+  },
+
+  /**
    * What to say to something that is not a question.
    *
    * Every one of these is a list, and which line goes out is picked from the
