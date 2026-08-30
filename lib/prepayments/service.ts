@@ -126,6 +126,54 @@ export async function createPrepaymentForPlacement(placementId: number): Promise
   return { ok: true, prepaymentId: data.id, created: true }
 }
 
+export type RaiseResult = {
+  created: number
+  skipped: { placementId: number; tutor: string; reason: string }[]
+}
+
+/**
+ * Raise the charge on every active placement that has not got one.
+ *
+ * The hire path raises it at the hire, which does nothing for a placement made
+ * before that path existed — and nothing for a hire whose pre-payment step
+ * failed at the time. Running this is safe and repeatable: placement_id is
+ * unique, so a placement that already has one is simply counted as skipped.
+ *
+ * An hourly placement with no agreed schedule cannot be priced at all, and is
+ * reported by name rather than silently passed over: the fix is to set the
+ * schedule, and the operator needs to be told that rather than left wondering
+ * why one tutor never got asked.
+ */
+export async function raiseMissingPrepayments(): Promise<RaiseResult> {
+  const db = supabaseAdmin()
+
+  const { data: placements } = await db
+    .from('placements')
+    .select('id, candidates(full_name)')
+    .in('status', ['scheduled', 'active'])
+    .order('id')
+
+  const { data: existing } = await db.from('prepayments').select('placement_id')
+  const already = new Set((existing ?? []).map((r) => r.placement_id))
+
+  const skipped: RaiseResult['skipped'] = []
+  let created = 0
+
+  for (const p of placements ?? []) {
+    if (already.has(p.id)) continue
+    const tutor = (p.candidates as unknown as { full_name: string | null } | null)?.full_name ?? `Placement ${p.id}`
+
+    const result = await createPrepaymentForPlacement(p.id)
+    if (!result.ok) {
+      skipped.push({ placementId: p.id, tutor, reason: result.reason })
+      continue
+    }
+    if (result.created) created++
+  }
+
+  return { created, skipped }
+}
+
 export type NotifyResult = { ok: boolean; reason?: string }
 
 /**

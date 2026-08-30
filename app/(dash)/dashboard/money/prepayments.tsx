@@ -7,6 +7,7 @@ import { prepaymentLabel } from '@/lib/ui/labels'
 import { Badge, EmptyState, Table, Td, Th, Thead, Tr } from '@/components/ui'
 import { Button } from '@/components/ui/button'
 import { askPrepayment, markPrepaymentSettled, waiveCharge } from './actions'
+import { RaiseForm } from './raise-form'
 
 export type PrepaymentRow = {
   id: number
@@ -44,9 +45,11 @@ export function Prepayments({
 }) {
   if (rows.length === 0) {
     return (
-      <EmptyState>
-        No pre-payments yet. One is raised automatically at each hire, for the placement that was
-        agreed.
+      <EmptyState
+        action={<RaiseForm />}
+      >
+        No pre-payments yet. One is raised at each hire — so any tutor hired before that existed has
+        none, and they can be raised for every active placement now.
       </EmptyState>
     )
   }
@@ -185,6 +188,12 @@ export function Prepayments({
           })}
         </tbody>
       </Table>
+
+      <div className="border-t border-neutral-100 pt-3">
+        {/* A placement hired before this existed, or one whose charge failed to
+            raise at the time, has none. Safe to press twice. */}
+        <RaiseForm subtle />
+      </div>
 
       {/* Waived money is in neither column: it is not owed and was not received. */}
       <dl className="flex flex-wrap items-center gap-x-6 gap-y-1 border-t border-neutral-100 pt-3 text-sm">

@@ -126,3 +126,32 @@ export async function attachToPrepayment(formData: FormData): Promise<void> {
   revalidatePath('/dashboard/money')
   revalidatePath('/dashboard')
 }
+
+export type RaiseState = { error?: string; ok?: string }
+
+/**
+ * Raise the pre-payment on any placement that has not got one.
+ *
+ * Needed because the charge is raised at the hire, so every placement made
+ * before that existed has none — and a hire whose pre-payment step failed
+ * would otherwise never be noticed. Safe to press twice.
+ */
+export async function raisePrepayments(_prev: RaiseState, _formData: FormData): Promise<RaiseState> {
+  const { raiseMissingPrepayments } = await import('@/lib/prepayments/service')
+  const result = await raiseMissingPrepayments()
+
+  revalidatePath('/dashboard/money')
+  revalidatePath('/dashboard')
+
+  if (result.created === 0 && result.skipped.length === 0) {
+    return { ok: 'Every placement already has one.' }
+  }
+
+  // Named, not counted: "1 skipped" tells him nothing he can act on.
+  const problems = result.skipped.map((s) => `${s.tutor} — ${s.reason}`).join('; ')
+  return {
+    ok:
+      `${result.created} raised` +
+      (problems ? ` · not raised for ${problems}` : ''),
+  }
+}
