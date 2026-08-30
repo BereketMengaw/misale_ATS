@@ -28,9 +28,6 @@ export const copy = {
 
     /** Asked something in the middle of registering. Answer, then point back. */
     backToRegistration: 'Now — back to your registration. Tap the buttons above to carry on.',
-
-    /** Under an answer, so a question that was nearly right leads somewhere. */
-    more: 'More on this:',
   },
 
   applyingFor: 'This job:',

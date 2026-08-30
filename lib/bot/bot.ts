@@ -178,7 +178,7 @@ function register(bot: Bot) {
       await reply(ctx, copy.answers.uncovered, answerKeyboard(defaultTopics()))
       return
     }
-    await reply(ctx, entry.answer, answerKeyboard(nearby(entry.id)))
+    await reply(ctx, entry.answer)
   })
 
   // Anything else under menu: is a button that no longer exists.
@@ -215,13 +215,19 @@ function register(bot: Bot) {
 
     const answered = await answerFor(ctx.from.id, ctx.chat.id, text)
 
-    if (!answered.covered) {
-      await reply(ctx, copy.answers.uncovered, answerKeyboard(answered.related))
+    // A question that was answered gets the answer and nothing else. Buttons
+    // under a reply read like a phone tree — nobody hands you a menu after
+    // every sentence — and the whole point of answering is that it reads like
+    // an answer. The escape hatches are still there: /start, and the menu.
+    if (answered.covered) {
+      await reply(ctx, answered.text)
       if (midRegistration) await reply(ctx, copy.answers.backToRegistration)
       return
     }
 
-    await reply(ctx, answered.text, answerKeyboard(answered.related))
+    // A miss is the one place buttons earn their keep: "I don't know" with no
+    // way forward is a dead end, so the nearest topics come with it.
+    await reply(ctx, copy.answers.uncovered, answerKeyboard(answered.related))
     if (midRegistration) await reply(ctx, copy.answers.backToRegistration)
   })
 
@@ -383,11 +389,4 @@ async function reply(ctx: Context, text: string, keyboard?: InlineKeyboard, pars
 /** The three topics offered when there is nothing better to offer. */
 function defaultTopics() {
   return KNOWLEDGE.filter((e) => ['how-it-works', 'pay', 'hear-back'].includes(e.id))
-}
-
-/** After reading one topic, the next most useful ones — never the same one twice. */
-function nearby(id: string) {
-  return KNOWLEDGE.filter((e) => e.id !== id)
-    .filter((e) => ['how-it-works', 'pay', 'pre-payment', 'hear-back', 'ranking'].includes(e.id))
-    .slice(0, 3)
 }
