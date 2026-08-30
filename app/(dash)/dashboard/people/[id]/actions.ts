@@ -3,6 +3,8 @@
 import { revalidatePath } from 'next/cache'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { checkAccount, checkBankName, PAYOUT_PROVIDERS } from '@/lib/candidates/payout-details'
+import { readCandidateCv, readFailureMessage } from '@/lib/candidates/reading'
+import type { ActionState } from '@/components/ui/action-form'
 
 export type DestinationState = { error?: string; ok?: string }
 
@@ -66,4 +68,46 @@ export async function saveDestination(
   revalidatePath(`/dashboard/people/${candidateId}`)
   revalidatePath('/dashboard/money')
   return { ok: 'Saved. Payouts to this tutor can go out now.' }
+}
+
+/**
+ * Read the CV attached to this profile — build plan step 5.
+ *
+ * Deliberately a button rather than something that happens on upload. Parsing
+ * is the only model call in the app that a tutor's own action could otherwise
+ * set off, and the cost rule in CLAUDE.md keeps that list at one: the tutor
+ * uploads, and nothing is spent until the operator, looking at the profile,
+ * decides this CV is worth reading.
+ *
+ * What it writes is narrow on purpose. Fields the tutor left empty are filled;
+ * anything that disagrees with an answer they gave is reported and the profile
+ * left alone. There is no "accept the CV's version" button, because that is the
+ * operator editing a profile, which he can already do.
+ */
+export async function readCv(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const candidateId = Number(formData.get('candidateId'))
+  if (!candidateId) return { error: 'No tutor.' }
+
+  const outcome = await readCandidateCv(candidateId, {
+    force: formData.get('force') === '1',
+  })
+
+  if (!outcome.ok) return { error: readFailureMessage(outcome.reason) }
+
+  revalidatePath(`/dashboard/people/${candidateId}`)
+
+  if (outcome.already) return { ok: 'This CV has already been read.' }
+
+  const { reading, filled } = outcome
+  const parts: string[] = []
+  if (filled > 0) parts.push(`filled ${filled} empty ${filled === 1 ? 'field' : 'fields'}`)
+  if (reading.conflicts.length > 0) {
+    parts.push(
+      `${reading.conflicts.length} ${reading.conflicts.length === 1 ? 'disagreement' : 'disagreements'} to look at`,
+    )
+  }
+  if (reading.additions.length > 0) parts.push('something extra to consider')
+  if (parts.length === 0) parts.push('nothing new — it agrees with the profile')
+
+  return { ok: `Read: ${parts.join(', ')}.` }
 }

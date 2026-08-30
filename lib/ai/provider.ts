@@ -1,9 +1,9 @@
 import { env } from '@/lib/env'
-import type { AiProvider, Answer, JobFields, PostDraft, Question } from './types'
-import { templateProvider, writePostTemplate, answerQuestionTemplate } from './providers/template'
+import type { AiProvider, Answer, CvFile, CvRead, JobFields, PostDraft, Question } from './types'
+import { templateProvider, writePostTemplate, answerQuestionTemplate, parseCvTemplate } from './providers/template'
 import { geminiProvider } from './providers/gemini'
 
-export type { AiProvider, Answer, JobFields, PostDraft, Question }
+export type { AiProvider, Answer, CvFile, CvRead, JobFields, PostDraft, Question }
 
 /**
  * The ONLY place a model is called. Nothing else in the codebase imports a
@@ -42,6 +42,36 @@ export async function writePost(fields: JobFields): Promise<PostDraft> {
   } catch (err) {
     console.error(`ai provider "${provider.name}" failed on writePost, using template`, err)
     return writePostTemplate(fields)
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Reading a CV
+// ---------------------------------------------------------------------------
+
+/**
+ * Read a CV. Never throws, and never on a path a stranger can reach.
+ *
+ * The cost rule in CLAUDE.md turns on that second clause. Answering a typed
+ * question is the one model call anybody who finds the bot can set off, and it
+ * is fenced accordingly. This one is not fenced, because it cannot be reached:
+ * uploading a CV costs nothing and calls nothing, and the only caller is the
+ * operator pressing a button on a profile he is already looking at. Somebody
+ * who uploads fifty CVs has spent fifty rows of storage and no tokens at all.
+ *
+ * With no model the reading comes back empty, which is the state step 5 is
+ * allowed to sit in indefinitely: the wizard's buttons already filled the
+ * profile, so an unread CV is a file beside it rather than a gap in it.
+ */
+export async function parseCv(file: CvFile): Promise<CvRead> {
+  const provider = getProvider()
+  if (provider.name === 'template') return parseCvTemplate()
+
+  try {
+    return await provider.parseCv(file)
+  } catch (err) {
+    console.error(`ai provider "${provider.name}" failed on parseCv, reading nothing`, err)
+    return parseCvTemplate()
   }
 }
 

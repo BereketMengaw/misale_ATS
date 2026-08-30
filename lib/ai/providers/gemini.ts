@@ -1,6 +1,7 @@
 import { env } from '@/lib/env'
-import type { AiProvider, Answer, JobFields, PostDraft, Question } from '../types'
-import { writePostTemplate } from './template'
+import type { AiProvider, Answer, CvFile, CvRead, JobFields, PostDraft, Question, RawCv } from '../types'
+import { writePostTemplate, parseCvTemplate } from './template'
+import { DEFAULT_AREAS, SUBJECT_CHOICES } from '@/lib/candidates/options'
 
 /**
  * Gemini Flash, free tier. The only place in the codebase that talks to a
@@ -17,6 +18,12 @@ const ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/models'
 // for a slow one without spending the whole serverless budget on it: a call
 // that overruns falls back to the matched fact, which is a real answer.
 const TIMEOUT_MS = 6_000
+
+// Reading a whole document is not answering a sentence: a scanned two-page CV
+// takes the best part of ten seconds. Nobody is waiting on a Telegram webhook
+// for it — the operator pressed a button and can watch it spin — so the budget
+// is the page's `maxDuration`, less a margin to write the result.
+const CV_TIMEOUT_MS = 25_000
 
 function model(): string {
   return env.geminiModel
@@ -138,6 +145,136 @@ async function generate(question: Question, apiKey: string): Promise<GeminiReply
   }
 }
 
+// ---------------------------------------------------------------------------
+// Reading a CV
+// ---------------------------------------------------------------------------
+
+/**
+ * The reader's whole licence. Everything it is told to return is checked again
+ * in `lib/candidates/cv.ts`, which drops any value that is not a real enum, a
+ * known subject or a real Ethiopian number — so the worst a bad reading can do
+ * is say nothing.
+ *
+ * The one rule that cannot be checked afterwards is the first one. Nothing here
+ * knows what a CV should contain, so an invented subject is indistinguishable
+ * from a read one; it has to not be written in the first place.
+ */
+function cvSystem(today: string): string {
+  return [
+    "You are reading a tutor's CV for a tutoring agency in Addis Ababa.",
+    '',
+    'Fill in every field from what the document says. Read it properly: a',
+    'qualification, an address and a run of dates are things the CV states, and',
+    'working them out from the words on the page is the job, not inference.',
+    '',
+    'What is forbidden is inventing. Never supply a subject, a school, a place or',
+    'a number that is not there to be read. A field the document genuinely does',
+    'not answer is null, and null is the right answer far more often than a',
+    'plausible guess is.',
+    '',
+    `Today is ${today}. Use it to count anything written as running to "present".`,
+    '',
+    'Fields:',
+    '- fullName: the name of the person whose CV this is. Null if the document is not a CV.',
+    '- phone: their mobile number, exactly as written.',
+    "- education: the highest qualification stated, in the CV's own words (\"BSc in Applied Mathematics\", \"MSc student\", \"Diploma in Accounting\").",
+    '- institution: the school or university that awarded it.',
+    '- area: the sub-city or neighbourhood of their address in Addis Ababa. Null if the address is elsewhere or absent.',
+    '- experienceYears: total years of teaching or tutoring, as a number. Count only teaching, and count from the dates of the teaching roles listed. Null only if no teaching job carries a date.',
+    '- subjects: the subjects they teach. Use these words where they fit: ' + SUBJECT_CHOICES.join(', ') + '.',
+    "- grades: the grade levels they teach, as the CV writes them (\"grades 9-12\", \"grade 7\", \"high school\", \"university\").",
+    '',
+    'Known sub-cities: ' + DEFAULT_AREAS.join(', ') + '.',
+  ].join('\n')
+}
+
+export const CV_SCHEMA = {
+  type: 'OBJECT',
+  properties: {
+    fullName: { type: 'STRING', nullable: true },
+    phone: { type: 'STRING', nullable: true },
+    education: { type: 'STRING', nullable: true },
+    institution: { type: 'STRING', nullable: true },
+    area: { type: 'STRING', nullable: true },
+    experienceYears: { type: 'NUMBER', nullable: true },
+    subjects: { type: 'ARRAY', items: { type: 'STRING' } },
+    grades: { type: 'ARRAY', items: { type: 'STRING' } },
+  },
+  // Every field, or the model answers only the easy ones. Left optional, a
+  // flash-lite model returned the name and the phone number off the top of the
+  // page and omitted the degree, the address and the dates — and an omitted
+  // field is indistinguishable from one the CV does not contain.
+  required: [
+    'fullName',
+    'phone',
+    'education',
+    'institution',
+    'area',
+    'experienceYears',
+    'subjects',
+    'grades',
+  ],
+} as const
+
+/**
+ * Gemini reads PDFs and photographs of CVs directly. Sending the bytes is the
+ * whole reason there is no OCR step in this codebase — see the AI row of
+ * `docs/06-decisions.md`.
+ */
+async function readCv(file: CvFile, apiKey: string): Promise<RawCv | null> {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), CV_TIMEOUT_MS)
+
+  try {
+    const res = await fetch(`${ENDPOINT}/${model()}:generateContent`, {
+      method: 'POST',
+      signal: controller.signal,
+      headers: { 'content-type': 'application/json', 'x-goog-api-key': apiKey },
+      body: JSON.stringify({
+        systemInstruction: {
+          parts: [{ text: cvSystem(new Date().toISOString().slice(0, 10)) }],
+        },
+        contents: [
+          {
+            role: 'user',
+            parts: [
+              { inlineData: { mimeType: file.mime, data: Buffer.from(file.bytes).toString('base64') } },
+              { text: 'Read this CV.' },
+            ],
+          },
+        ],
+        generationConfig: {
+          // Zero, not the answerer's 0.2. There is nothing to phrase well here;
+          // the same CV read twice should give the same profile.
+          temperature: 0,
+          maxOutputTokens: 800,
+          responseMimeType: 'application/json',
+          responseSchema: CV_SCHEMA,
+        },
+      }),
+    })
+
+    if (!res.ok) {
+      console.error(`gemini cv ${res.status}: ${(await res.text()).slice(0, 300)}`)
+      return null
+    }
+
+    const body = (await res.json()) as {
+      candidates?: { content?: { parts?: { text?: string }[] } }[]
+    }
+    const text = body.candidates?.[0]?.content?.parts?.[0]?.text
+    if (!text) return null
+
+    const parsed = JSON.parse(text) as RawCv
+    return parsed && typeof parsed === 'object' ? parsed : null
+  } catch (err) {
+    console.error('gemini cv read failed', err)
+    return null
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
 export const geminiProvider: AiProvider = {
   name: 'gemini',
 
@@ -164,5 +301,20 @@ export const geminiProvider: AiProvider = {
       usedFactIds: Array.isArray(reply.usedFactIds) ? reply.usedFactIds : [],
       generatedBy: 'gemini',
     }
+  },
+
+  /**
+   * Never throws for a reason the caller must handle: an unreadable CV comes
+   * back as the template's "nothing was read", which is the same state as
+   * having no model at all and needs no different handling.
+   */
+  async parseCv(file: CvFile): Promise<CvRead> {
+    const apiKey = env.geminiApiKey
+    if (!apiKey) return parseCvTemplate()
+
+    const raw = await readCv(file, apiKey)
+    if (!raw) return parseCvTemplate()
+
+    return { read: true, raw, generatedBy: 'gemini' }
   },
 }

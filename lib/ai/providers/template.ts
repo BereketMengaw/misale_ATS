@@ -1,4 +1,4 @@
-import type { AiProvider, Answer, JobFields, PostDraft, Question } from '../types'
+import type { AiProvider, Answer, CvFile, CvRead, JobFields, PostDraft, Question } from '../types'
 import { formatEtb, split, toCents } from '@/lib/money/commission'
 import { ALL_SUBJECTS } from '@/lib/candidates/options'
 
@@ -103,6 +103,18 @@ export function answerQuestionTemplate(question: Question): Answer {
   return { text: best.answer, covered: true, generatedBy: 'template' }
 }
 
+/**
+ * The no-model reading: nothing was read.
+ *
+ * Step 5 works without a model because it has to — the wizard already collected
+ * every field by button, so an unread CV costs nobody a profile. It stays what
+ * it was on the day it was uploaded: a file beside the profile that a human
+ * opens. `read: false` is not a failure the operator has to act on.
+ */
+export function parseCvTemplate(): CvRead {
+  return { read: false, raw: {}, generatedBy: 'template' }
+}
+
 export const templateProvider: AiProvider = {
   name: 'template',
   async writePost(fields: JobFields): Promise<PostDraft> {
@@ -110,5 +122,8 @@ export const templateProvider: AiProvider = {
   },
   async answerQuestion(question: Question): Promise<Answer> {
     return answerQuestionTemplate(question)
+  },
+  async parseCv(_file: CvFile): Promise<CvRead> {
+    return parseCvTemplate()
   },
 }

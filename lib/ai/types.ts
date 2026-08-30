@@ -67,9 +67,57 @@ export type Answer = {
   generatedBy: string
 }
 
+// ---------------------------------------------------------------------------
+// Reading a CV
+// ---------------------------------------------------------------------------
+
+/**
+ * A CV as it sits in storage. Bytes rather than text: the decision in
+ * `docs/06-decisions.md` is that the model reads photos and PDFs natively, so
+ * there is no OCR pipeline and no extractor to keep working.
+ */
+export type CvFile = {
+  bytes: ArrayBuffer
+  mime: string
+  name?: string | null
+}
+
+/**
+ * What a provider claims a CV says, before anything believes it.
+ *
+ * Every field is loose on purpose — a string where the profile holds an enum, a
+ * number of years where the profile holds a band. Turning this into values the
+ * ranker can use is `lib/candidates/cv.ts`'s job, where it is pure and tested,
+ * because a prompt asking for an enum is a request and normalising is the
+ * guarantee. A provider that invents a subject simply loses it there.
+ */
+export type RawCv = {
+  fullName?: string | null
+  phone?: string | null
+  /** Free text: "BSc in Applied Physics", "MSc student". */
+  education?: string | null
+  institution?: string | null
+  /** Whatever the address says; the sub-city is picked out of it. */
+  area?: string | null
+  /** Years of teaching or tutoring, as a number. Bands are derived. */
+  experienceYears?: number | null
+  subjects?: string[] | null
+  /** However the CV writes them: "grades 9-12", "high school", "university". */
+  grades?: string[] | null
+}
+
+export type CvRead = {
+  /** False when no model ran, or nothing usable came back. Never an error. */
+  read: boolean
+  raw: RawCv
+  /** Provider name, or 'template'. Recorded on the row so it is auditable. */
+  generatedBy: string
+}
+
 export interface AiProvider {
   readonly name: string
   writePost(fields: JobFields): Promise<PostDraft>
   answerQuestion(question: Question): Promise<Answer>
-  // parseCV lands at step 5, parseSMS at step 11.
+  parseCv(file: CvFile): Promise<CvRead>
+  // parseSMS lands at step 11.
 }

@@ -10,8 +10,18 @@ import { destinationLabel, isPayable, type PayoutProvider } from '@/lib/candidat
 import { prepaymentStage } from '@/lib/money/prepayment'
 import { formatEtb } from '@/lib/money/commission'
 import { DestinationForm } from './destination-form'
+import { CvReadingPanel } from './cv-reading'
+import { READABLE_MIME } from '@/lib/candidates/files'
+import type { CvReading } from '@/lib/candidates/cv'
 
 export const dynamic = 'force-dynamic'
+
+/**
+ * Reading a CV is a model call against a whole document, which is slower than
+ * anything else the dashboard does. The default ten seconds cuts it off
+ * mid-read; the reader gives up at twenty-five and this leaves room to save.
+ */
+export const maxDuration = 60
 
 const DAY_LABEL = Object.fromEntries(DAYS.map((d) => [d.value, d.label]))
 const SLOT_LABEL = Object.fromEntries(SLOTS.map((s) => [s.value, s.label]))
@@ -86,6 +96,12 @@ export default async function TutorPage({ params }: { params: Promise<{ id: stri
     expectedRate: c.expected_rate, cvPath: c.cv_path,
   })
 
+  // The reading of the CV, if it has been read. `cv_parsed_from` is the path it
+  // was read from: when a tutor sends a better CV the path changes, and the old
+  // reading is about a document that is no longer on the profile.
+  const cvReading = (c.cv_parsed ?? null) as CvReading | null
+  const cvReadingStale = Boolean(cvReading && c.cv_parsed_from !== c.cv_path)
+
   return (
     <PageShell width="narrow">
       <PageHeader
@@ -156,6 +172,17 @@ export default async function TutorPage({ params }: { params: Promise<{ id: stri
           </a>
         ) : (
           <p className="text-sm text-neutral-500">Not uploaded.</p>
+        )}
+
+        {c.cv_path && (
+          <CvReadingPanel
+            candidateId={c.id}
+            reading={cvReading}
+            readAt={c.cv_parsed_at ?? null}
+            readBy={c.cv_parsed_by ?? null}
+            stale={cvReadingStale}
+            readable={READABLE_MIME.test(c.cv_mime ?? '')}
+          />
         )}
       </Card>
 
