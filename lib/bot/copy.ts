@@ -3,6 +3,18 @@
  * Kept in one file so the wording is edited in one place, not hunted through handlers.
  */
 
+/**
+ * The group you already send everyone by hand: 122 people were told "join the
+ * @wisdomwayteachersteam, for current job post" after applying. One constant,
+ * because it is the kind of thing that changes and must change in one place.
+ *
+ * Kept out of lib/bot/answers/knowledge.ts on purpose. Knowledge is what the
+ * model rewrites, and a model that invents a link is a phishing message the
+ * agency sent — rejectAnswer() drops any answer containing one. A link belongs
+ * only in copy the code sends verbatim.
+ */
+export const JOBS_GROUP = '@wisdomwayteachersteam'
+
 export const copy = {
   welcome: [
     'Welcome 👋',
@@ -36,11 +48,11 @@ export const copy = {
      */
     wantsToApply: 'Here is what is open. Tap the one you want and I will take you through it.',
     wantsToApplyNothingOpen:
-      'Nothing is open this minute. Register and I will message you here the moment a job fits you — you will not have to keep checking.',
+      `Nothing is open this minute. Register and I will message you here the moment a job fits you — and every post also goes to ${JOBS_GROUP} if you would rather watch for yourself.`,
 
     /** "Is it still open?" — answered from the live list rather than a promise. */
     stillOpen: 'These are open right now. Anything not listed has been filled.',
-    stillOpenNothing: 'Nothing is open right now. Register and I will message you when a job fits.',
+    stillOpenNothing: `Nothing is open right now. Register and I will message you when a job fits — every post also goes to ${JOBS_GROUP}.`,
 
     /**
      * "The first one." A reply to a message the bot did not send and cannot
@@ -57,7 +69,7 @@ export const copy = {
 
   jobFilled: 'Sorry — this position has been filled. Here is what is open now.',
   jobNotFound: 'That posting could not be found. Here is what is open now.',
-  noOpenJobs: 'Nothing is open right now. Register, and we will message you when something fits.',
+  noOpenJobs: `Nothing is open right now. Register and we will message you when something fits — and every post also goes to ${JOBS_GROUP}, so you can watch there too.`,
 
   notReadyYet: "This part isn't ready yet. Check back soon.",
 
@@ -107,9 +119,13 @@ export const copy = {
     cvSaved: 'Got your CV.',
 
     done: (applied: string | null) =>
-      applied
-        ? `You're registered, and your application for ${applied} is in.\n\nWe will message you here if you are shortlisted. You do not need to do anything else.`
-        : "You're registered.\n\nWe will message you here when a job suits you. You do not need to do anything else.",
+      [
+        applied
+          ? `You're registered, and your application for ${applied} is in.\n\nWe will message you here if you are shortlisted. You do not need to do anything else.`
+          : "You're registered.\n\nWe will message you here when a job suits you. You do not need to do anything else.",
+        '',
+        `Every job also goes to ${JOBS_GROUP}. Join it and pin it, and you will see each post as it goes up.`,
+      ].join('\n'),
 
     staleTap: 'You already answered that one.',
 
