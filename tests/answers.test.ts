@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { KNOWLEDGE, entryById, knowledgeFingerprint } from '@/lib/bot/answers/knowledge'
+import { ACTIONS, KNOWLEDGE, actionFor, entryById, knowledgeFingerprint } from '@/lib/bot/answers/knowledge'
+import { readFileSync } from 'node:fs'
 import { DEFAULT_AREAS } from '@/lib/candidates/options'
 import { bestAnswer, normalize, retrieve, scoreAll } from '@/lib/bot/answers/retrieve'
 import { rejectAnswer } from '@/lib/ai/provider'
@@ -280,5 +281,52 @@ describe('the knowledge fingerprint', () => {
 
   it('is short enough to live in a cache key', () => {
     expect(knowledgeFingerprint(KNOWLEDGE).length).toBeLessThanOrEqual(8)
+  })
+})
+
+/**
+ * An answer that says "open X and tap Y" is a worse version of the button
+ * itself — it asks somebody to go and find a thing we are holding. So a few
+ * answers carry exactly one button. A button that goes nowhere is worse than
+ * none, which is what the first test here is for.
+ */
+describe('the button an answer carries', () => {
+  const botSource = readFileSync('lib/bot/bot.ts', 'utf8')
+
+  it('only ever points at a callback the bot actually handles', () => {
+    for (const [key, action] of Object.entries(ACTIONS)) {
+      // Registered as bot.callbackQuery('menu:edit', ...) — the quoted literal.
+      expect(botSource, key).toContain(`callbackQuery('${action.callback}'`)
+    }
+  })
+
+  it('gives every action a label somebody could tap', () => {
+    for (const [key, action] of Object.entries(ACTIONS)) {
+      expect(action.label.length, key).toBeGreaterThan(2)
+      expect(action.label.length, key).toBeLessThanOrEqual(32)
+    }
+  })
+
+  it('names a real action on every entry that declares one', () => {
+    for (const entry of KNOWLEDGE) {
+      if (entry.action) expect(ACTIONS[entry.action], entry.id).toBeTruthy()
+    }
+  })
+
+  /** Most answers are answers, not instructions. A menu under each is a phone tree. */
+  it('leaves most answers with no button at all', () => {
+    const withAction = KNOWLEDGE.filter((e) => e.action)
+    expect(withAction.length).toBeGreaterThan(0)
+    expect(withAction.length).toBeLessThan(KNOWLEDGE.length / 2)
+  })
+
+  it('takes the action from the best matching fact', () => {
+    const change = KNOWLEDGE.find((e) => e.id === 'profile-change')!
+    expect(actionFor([change])).toEqual(ACTIONS['edit-profile'])
+  })
+
+  it('has no button when nothing matched, or when nothing matched has one', () => {
+    expect(actionFor([])).toBeNull()
+    expect(actionFor([KNOWLEDGE.find((e) => e.id === 'hear-back')!])).toBeNull()
   })
 })

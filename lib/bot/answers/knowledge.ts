@@ -11,6 +11,28 @@
  * complete, sendable reply on its own.
  */
 
+/**
+ * The button an answer can carry, when the answer is an instruction.
+ *
+ * A covered answer normally gets no buttons at all: a menu under every reply
+ * reads as a phone tree, and the point of answering is that it reads like an
+ * answer. But an answer whose whole content is "open X and tap Y" is a worse
+ * version of the button itself — it asks somebody to go and find a thing we
+ * could have handed them. So: no buttons, except where there is an exact next
+ * step, and then exactly that one.
+ *
+ * The callbacks are a closed set, checked by a test against the handlers the
+ * bot actually registers. A button that does nothing is worse than no button.
+ */
+export type ActionKey = 'edit-profile' | 'payout-details' | 'open-jobs' | 'register'
+
+export const ACTIONS: Record<ActionKey, { label: string; callback: string }> = {
+  'edit-profile': { label: 'Change something', callback: 'menu:edit' },
+  'payout-details': { label: 'Payment details', callback: 'menu:payout' },
+  'open-jobs': { label: 'Open jobs', callback: 'menu:jobs' },
+  register: { label: 'Register as a tutor', callback: 'menu:register' },
+}
+
 export type KnowledgeEntry = {
   id: string
   /** Shown on the follow-up buttons, so it reads as a question a person asks. */
@@ -18,6 +40,14 @@ export type KnowledgeEntry = {
   /** Lowercase. Multi-word entries are phrases and score higher than single words. */
   keywords: string[]
   answer: string
+  /** Only where the answer names something to do. Most entries have none. */
+  action?: ActionKey
+}
+
+/** The action for the best matching fact, if that fact has one. */
+export function actionFor(entries: KnowledgeEntry[]): { label: string; callback: string } | null {
+  const withAction = entries.find((e) => e.action)
+  return withAction?.action ? ACTIONS[withAction.action] : null
 }
 
 export const KNOWLEDGE: KnowledgeEntry[] = [
@@ -30,6 +60,7 @@ export const KNOWLEDGE: KnowledgeEntry[] = [
     ],
     answer:
       'Apply to anything open. We rank everyone who applied, ask the best few to accept the terms, and the family picks from those who accept. Tap "Open jobs" to see what is live now.',
+    action: 'open-jobs',
   },
   {
     id: 'pay',
@@ -127,6 +158,7 @@ export const KNOWLEDGE: KnowledgeEntry[] = [
     ],
     answer:
       'Open "My profile" and tap "Change something". Pick the one thing that is wrong — your phone number, your area, your subjects, anything — answer it again, and the rest of your profile stays exactly as it is. You do not have to register a second time.',
+    action: 'edit-profile',
   },
   {
     id: 'delete-data',
@@ -403,6 +435,7 @@ export const KNOWLEDGE: KnowledgeEntry[] = [
     // real digits are in the message the bot sends verbatim from settings.
     answer:
       'The account is in the message you were sent when you were hired, along with the code to put in the payment reason. That code is what matches the payment to you, so send it with the code rather than without. If you cannot find the message, open Payment details in the menu and I will send it again.',
+    action: 'payout-details',
   },
   {
     id: 'how-you-pay-me',
@@ -414,6 +447,7 @@ export const KNOWLEDGE: KnowledgeEntry[] = [
     ],
     answer:
       'Into the account you gave us when you were hired — Telebirr, CBE or another bank, whichever you chose. You get a message here when it is sent. To change the account, tap Payment details in the menu; there is nobody to ring about it.',
+    action: 'payout-details',
   },
 ]
 

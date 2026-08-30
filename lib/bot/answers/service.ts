@@ -2,7 +2,7 @@ import { supabaseAdmin } from '@/lib/supabase/admin'
 import { getSession, saveSession } from '@/lib/bot/session'
 import { standingOf } from './standing'
 import { activeProviderName, answerQuestion } from '@/lib/ai/provider'
-import { KNOWLEDGE, knowledgeFingerprint, type KnowledgeEntry } from './knowledge'
+import { actionFor, KNOWLEDGE, knowledgeFingerprint, type KnowledgeEntry } from './knowledge'
 import { normalize, retrieve } from './retrieve'
 
 /**
@@ -82,6 +82,11 @@ export type AnsweredQuestion = {
   covered: boolean
   /** Nearest topics, offered as buttons so a miss still leads somewhere. */
   related: KnowledgeEntry[]
+  /**
+   * The one button an answer earns: present only where the answer names an
+   * exact next step, so it hands over the thing rather than describing it.
+   */
+  action: { label: string; callback: string } | null
   source: string
 }
 
@@ -213,6 +218,10 @@ export async function answerFor(
       ? previous.factIds.map((id) => KNOWLEDGE.find((e) => e.id === id)).filter(Boolean as unknown as (e: KnowledgeEntry | undefined) => e is KnowledgeEntry)
       : []
 
+  // Taken from the matched fact, never from the model's words: the button has
+  // to go somewhere real, and what came back is prose that may not mention it.
+  const action = actionFor(matched)
+
   const finish = async (text: string, covered: boolean, source: string) => {
     await record({
       telegramId,
@@ -224,7 +233,7 @@ export async function answerFor(
       answer: text,
       source,
     })
-    return { text, covered, related, source }
+    return { text, covered, related, action: covered ? action : null, source }
   }
 
   // Keywords found nothing. Without a model that is the end of it — there is

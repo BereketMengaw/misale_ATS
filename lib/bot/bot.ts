@@ -1,4 +1,4 @@
-import { Bot, type Context, type InlineKeyboard } from 'grammy'
+import { Bot, InlineKeyboard, type Context } from 'grammy'
 import { env } from '@/lib/env'
 import { copy } from './copy'
 import { applyKeyboard, backKeyboard, editMenuKeyboard, mainMenu, openJobsKeyboard, profileKeyboard, registerKeyboard } from './keyboards'
@@ -313,8 +313,18 @@ function register(bot: Bot) {
     // under a reply read like a phone tree — nobody hands you a menu after
     // every sentence — and the whole point of answering is that it reads like
     // an answer. The escape hatches are still there: /start, and the menu.
+    //
+    // The exception is an answer that IS an instruction. "Open My profile and
+    // tap Change something" is a worse version of the button itself: it asks
+    // somebody to go and find a thing we are holding. One button then, the one
+    // the answer named, and never a menu.
     if (answered.covered) {
-      await reply(ctx, answered.text)
+      const action = answered.action
+      await reply(
+        ctx,
+        answered.text,
+        action ? new InlineKeyboard().text(action.label, action.callback) : undefined,
+      )
       if (midRegistration) await reply(ctx, copy.answers.backToRegistration)
       return
     }
