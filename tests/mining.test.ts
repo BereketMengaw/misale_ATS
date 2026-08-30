@@ -77,11 +77,17 @@ describe('mining real conversations', () => {
   // told their CV would be deleted when they asked about leaving a placement.
   it('separates a weak match from a confident one', () => {
     const report = mine([
-      asked('what if i want to stop teaching in the middle', 'abel'),
+      asked('do you deduct anything from my salary', 'abel'),
       asked('how much will i be paid for this job', 'hanna'),
     ])
-    expect(report.weak.map((q) => q.topEntry)).toContain('delete-data')
+    expect(report.weak.map((q) => q.topEntry)).toContain('commission')
     expect(report.covered.map((q) => q.topEntry)).toContain('pay')
+  })
+
+  // The question that produced that bug, now that it has an answer of its own.
+  it('finds the entry that was written because of this report', () => {
+    const report = mine([asked('what if i want to stop teaching in the middle', 'abel')])
+    expect(report.covered.map((q) => q.topEntry)).toContain('leaving')
   })
 
   it('reports a question nothing matches as one to write', () => {

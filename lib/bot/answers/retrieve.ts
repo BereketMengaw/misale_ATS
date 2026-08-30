@@ -27,15 +27,37 @@ export function normalize(text: string): string {
     .trim()
 }
 
-/** Crude singular. "jobs" and "job" must not be different topics. */
+/**
+ * Crude, and deliberately so. This only has to be *consistent* — the keyword
+ * and the question both pass through it — not linguistically right. "clos" is
+ * not a word; it just has to be what both "close" and "closed" become.
+ *
+ * Every rule here was added because a real question missed its answer:
+ * "stopped" not reaching "stop" is how someone asking about leaving a
+ * placement was told their CV would be deleted.
+ */
 function stem(word: string): string {
-  if (word.length > 3 && word.endsWith('ies')) return `${word.slice(0, -3)}y`
+  let w = word
+
+  // --- plural ---
+  if (w.length > 3 && w.endsWith('ies')) w = `${w.slice(0, -3)}y`
   // Only a real -es plural loses both letters: "boxes", "classes", "matches".
-  // Stripping "es" from every word turned "times" into "tim" and, worse,
-  // "fees" into "fe" — so nobody asking about fees ever reached that answer.
-  if (word.length > 4 && /(?:s|x|z|ch|sh)es$/.test(word)) return word.slice(0, -2)
-  if (word.length > 2 && word.endsWith('s')) return word.slice(0, -1)
-  return word
+  // Taking "es" off everything turned "times" into "tim" and "fees" into "fe".
+  else if (w.length > 4 && /(?:s|x|z|ch|sh)es$/.test(w)) w = w.slice(0, -2)
+  else if (w.length > 2 && w.endsWith('s')) w = w.slice(0, -1)
+
+  // --- past tense ---
+  if (w.length > 4 && w.endsWith('ied')) w = `${w.slice(0, -3)}y` // applied → apply
+  else if (w.length > 4 && w.endsWith('ed')) {
+    w = w.slice(0, -2)
+    if (/(.)\1$/.test(w)) w = w.slice(0, -1) // stopped → stopp → stop
+  }
+
+  // A trailing e is dropped from both sides, so "close"/"closed" and
+  // "time"/"times" land on the same string whichever way they arrived.
+  if (w.length > 3 && w.endsWith('e')) w = w.slice(0, -1)
+
+  return w
 }
 
 /** The question with every word stemmed, stop words kept, for phrase matching. */

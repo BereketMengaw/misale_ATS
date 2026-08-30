@@ -130,11 +130,23 @@ export const KNOWLEDGE: KnowledgeEntry[] = [
     id: 'delete-data',
     topic: 'Can you delete my data?',
     keywords: [
-      'delete', 'remove me', 'erase', 'privacy', 'data', 'unsubscribe', 'stop',
-      'stop messaging', 'opt out', 'leave',
+      'delete', 'remove me', 'erase', 'privacy', 'my data', 'unsubscribe',
+      'stop messaging', 'stop the messages', 'opt out', 'delete my profile',
     ],
     answer:
       'Yes. Ask here and your profile and CV are deleted, and the job messages stop. You can register again later; nothing is kept to stop you.',
+  },
+  {
+    id: 'leaving',
+    topic: 'What if I want to stop teaching?',
+    keywords: [
+      'stop', 'stop teaching', 'want to stop', 'stop in the middle', 'quit',
+      'resign', 'leave the job', 'leave', 'discontinue', 'cannot continue',
+      'can not continue', 'stop after i started', 'give up', 'drop the job',
+      'no longer teach', 'end the job',
+    ],
+    answer:
+      'Tell us here as early as you can, before you stop. Finding the family another tutor is our job, not yours — but we can only do it if we know in advance, so that nobody is left without one. There is nothing for you to arrange yourself.',
   },
   {
     id: 'cv',

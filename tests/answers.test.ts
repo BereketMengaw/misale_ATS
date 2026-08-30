@@ -97,6 +97,11 @@ describe('retrieve', () => {
     ['can i teach two families at once', 'multiple-jobs'],
     ['why do i have to pay you before i start', 'pre-payment'],
     ['do you have anything in bole', 'area'],
+    ['what if i want to stop in the middle', 'leaving'],
+    ['so what if i stopped after i started tutoring', 'leaving'],
+    ['i want to quit the job', 'leaving'],
+    ['please delete my data', 'delete-data'],
+    ['stop messaging me', 'delete-data'],
   ]
 
   for (const [question, expected] of cases) {
