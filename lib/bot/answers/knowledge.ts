@@ -276,7 +276,7 @@ export const KNOWLEDGE: KnowledgeEntry[] = [
       'take long', 'quick', 'minutes',
     ],
     answer:
-      'A couple of minutes. Thirteen steps, nearly all of them buttons — the only thing you type is your name, and your number if the share button does not appear. You can stop part way and pick up where you left off.',
+      'A couple of minutes. Fourteen steps, nearly all of them buttons — the only thing you type is your name, and your number if the share button does not appear. You can stop part way and pick up where you left off.',
   },
   {
     id: 'why-phone',

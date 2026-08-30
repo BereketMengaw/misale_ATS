@@ -115,6 +115,12 @@ export const copy = {
     cvBadType: 'Send a PDF, a Word document, or a photo of your CV.',
     cvSaved: 'Got your CV.',
 
+    documents:
+      'And your educational documents — your degree, your grade 12 certificate, a transcript. Send them one at a time, as many as you have, then tap Done. Photos are fine.',
+    documentSaved: (count: number) =>
+      `Got it — ${count} document${count === 1 ? '' : 's'} so far. Send another, or tap Done.`,
+    documentsSkipped: 'No problem.',
+
     done: (applied: string | null) =>
       [
         applied
@@ -131,6 +137,8 @@ export const copy = {
     answeredConsent: '✓ Agreed — we may keep your details and message you about jobs',
     answeredCvSkipped: '✓ CV — skipped',
     answeredCvSaved: '✓ CV — received',
+    answeredDocuments: (count: number) =>
+      count === 0 ? '✓ Documents — skipped' : `✓ Documents — ${count} received`,
 
     alreadyApplied: (job: string) => `You have already applied for ${job}. We will message you here if you are shortlisted.`,
     resume: 'Picking up where you left off.',

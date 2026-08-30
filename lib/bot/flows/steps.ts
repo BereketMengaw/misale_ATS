@@ -16,6 +16,7 @@ export const REGISTER_STEPS = [
   'experience',
   'rate',
   'cv',
+  'documents',
 ] as const
 
 export type RegisterStep = (typeof REGISTER_STEPS)[number]
@@ -52,6 +53,7 @@ export const STEP_FIELD: Record<RegisterStep, string> = {
   experience: 'experience',
   rate: 'rate',
   cv: 'cv',
+  documents: 'document',
 }
 
 export function ownsStep(step: RegisterStep, field: string): boolean {
@@ -73,6 +75,7 @@ export const STEP_LABEL: Record<RegisterStep, string> = {
   experience: 'Experience',
   rate: 'Rate',
   cv: 'CV',
+  documents: 'Documents',
 }
 
 export function stepNumber(step: RegisterStep): number {

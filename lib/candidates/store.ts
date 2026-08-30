@@ -18,6 +18,8 @@ export type Draft = {
   cvPath?: string
   cvName?: string
   cvMime?: string
+  /** Held on the draft until finish(), when there is a candidate to attach to. */
+  documents?: { path: string; name: string; mime: string }[]
 }
 
 /** Days and times are collected separately, then combined into the grid. */
@@ -142,6 +144,58 @@ export async function storeCv(
     return null
   }
   return path
+}
+
+/**
+ * An educational document. Same bucket as the CV under a different prefix:
+ * the files are the same kind of thing and the access rules are identical.
+ */
+export async function storeDocument(
+  telegramId: number,
+  fileName: string,
+  mime: string,
+  bytes: ArrayBuffer,
+): Promise<string | null> {
+  const safe = fileName.replace(/[^a-zA-Z0-9._-]/g, '_').slice(-80)
+  const path = `${telegramId}/docs/${Date.now()}-${safe}`
+
+  const { error } = await supabaseAdmin()
+    .storage.from('cvs')
+    .upload(path, bytes, { contentType: mime, upsert: false })
+
+  if (error) {
+    console.error('storeDocument failed', error)
+    return null
+  }
+  return path
+}
+
+/**
+ * Attaches the documents collected during registration. Re-registering
+ * replaces the profile, so it replaces these too rather than leaving last
+ * month's transcript beside this month's answers.
+ */
+export async function saveDocuments(
+  candidateId: number,
+  documents: { path: string; name: string; mime: string }[],
+): Promise<void> {
+  const db = supabaseAdmin()
+  try {
+    await db.from('candidate_documents').delete().eq('candidate_id', candidateId)
+    if (documents.length === 0) return
+    const { error } = await db.from('candidate_documents').insert(
+      documents.map((d) => ({
+        candidate_id: candidateId,
+        path: d.path,
+        file_name: d.name,
+        mime: d.mime,
+      })),
+    )
+    if (error) console.error('saveDocuments failed', error)
+  } catch (err) {
+    // A lost document must never cost somebody their registration.
+    console.error('saveDocuments threw', err)
+  }
 }
 
 /** Everything "My profile" shows. One read, no scoring. */

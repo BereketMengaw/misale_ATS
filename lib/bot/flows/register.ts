@@ -8,7 +8,7 @@ import {
   DAYS, DEFAULT_AREAS, ALL_SUBJECTS, SUBJECT_CHOICES, EDUCATION, EXPERIENCE,
   GENDERS, GRADE_BANDS, labelFor, RATE_BANDS, SLOTS, type Option,
 } from '@/lib/candidates/options'
-import { applyToJob, saveCandidate, storeCv, type Draft } from '@/lib/candidates/store'
+import { applyToJob, saveCandidate, saveDocuments, storeCv, storeDocument, type Draft } from '@/lib/candidates/store'
 import { normalizePhone, phoneProblem } from '@/lib/candidates/phone'
 import { markTalentApplied } from '@/lib/talent/service'
 import { env } from '@/lib/env'
@@ -141,6 +141,17 @@ function promptFor(ctx: Context, step: RegisterStep, draft: Draft): Prompt {
         text: head + copy.reg.cv,
         inline: withBack(new InlineKeyboard().text(copy.buttons.skip, 'reg:cv:skip'), step),
       }
+
+    case 'documents':
+      return {
+        text: head + copy.reg.documents,
+        inline: withBack(
+          new InlineKeyboard()
+            .text(copy.buttons.done, 'reg:document:__done')
+            .text(copy.buttons.skip, 'reg:document:skip'),
+          step,
+        ),
+      }
   }
 }
 
@@ -182,6 +193,7 @@ function answerLine(step: RegisterStep, draft: Draft): string {
     case 'experience': return copy.reg.answered(label, labelFor(EXPERIENCE, draft.experience))
     case 'rate': return copy.reg.answered(label, labelFor(RATE_BANDS, String(draft.expectedRate ?? '')))
     case 'cv': return draft.cvPath ? copy.reg.answeredCvSaved : copy.reg.answeredCvSkipped
+    case 'documents': return copy.reg.answeredDocuments(draft.documents?.length ?? 0)
   }
 }
 
@@ -218,6 +230,8 @@ async function finish(ctx: Context, sess: Sess) {
     await say(ctx, 'Something went wrong saving your profile. Send /start and we will try again.')
     return
   }
+
+  await saveDocuments(saved.id, sess.draft.documents ?? [])
 
   let appliedTo: string | null = null
   if (sess.jobId) {
@@ -328,6 +342,20 @@ export async function handleRegisterCallback(ctx: Context, field: string, value:
       await save()
       await ctx.answerCallbackQuery()
       await advance(ctx, 'rate', sess)
+      return true
+
+    // ---- educational documents: several files, then Done ----
+    case 'document':
+      if (value === 'skip') {
+        draft.documents = []
+        await save()
+        await ctx.answerCallbackQuery()
+        await say(ctx, copy.reg.documentsSkipped)
+        await advance(ctx, 'documents', sess)
+        return true
+      }
+      await ctx.answerCallbackQuery()
+      await advance(ctx, 'documents', sess)
       return true
 
     // ---- multi-choice fields: tap to toggle, Done to move on ----
@@ -452,6 +480,45 @@ export async function handleRegisterMessage(ctx: Context): Promise<boolean> {
     draft.fullName = name.slice(0, 80)
     await saveSession(ctx.from!.id, ctx.chat!.id, { data: { draft } })
     await advance(ctx, 'name', sess)
+    return true
+  }
+
+  // --- educational documents: as many as they have, then Done ---
+  if (step === 'documents') {
+    const doc = msg.document
+    const photo = msg.photo?.[msg.photo.length - 1]
+    if (!doc && !photo) {
+      await say(ctx, copy.reg.cvBadType)
+      return true
+    }
+
+    const size = doc?.file_size ?? photo?.file_size ?? 0
+    if (size > MAX_CV_BYTES) {
+      await say(ctx, copy.reg.cvTooBig)
+      return true
+    }
+    const mime = doc?.mime_type ?? 'image/jpeg'
+    if (doc && !CV_MIME.test(mime)) {
+      await say(ctx, copy.reg.cvBadType)
+      return true
+    }
+
+    const name = doc?.file_name ?? `document-${Date.now()}.jpg`
+    try {
+      const file = await ctx.api.getFile(doc?.file_id ?? photo!.file_id)
+      const res = await fetch(`https://api.telegram.org/file/bot${env.telegramBotToken}/${file.file_path}`)
+      const path = await storeDocument(ctx.from!.id, name, mime, await res.arrayBuffer())
+      if (path) {
+        draft.documents = [...(draft.documents ?? []), { path, name, mime }]
+        await saveSession(ctx.from!.id, ctx.chat!.id, { data: { draft } })
+      }
+    } catch (err) {
+      // One failed upload must not end a registration.
+      console.error('document upload failed', err)
+    }
+
+    // Stay on the step: they said "documents", plural, and usually mean it.
+    await say(ctx, copy.reg.documentSaved(draft.documents?.length ?? 0))
     return true
   }
 

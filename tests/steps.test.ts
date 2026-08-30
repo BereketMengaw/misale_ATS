@@ -52,7 +52,9 @@ describe('a tap has to belong to the step it lands on', () => {
     expect(prevStep('consent')).toBeNull()
     expect(prevStep('name')).toBe('consent')
     expect(prevStep('cv')).toBe('rate')
-    expect(nextStep('cv')).toBeNull()
+    expect(nextStep('cv')).toBe('documents')
+    // The last step is the one that finishes the registration.
+    expect(nextStep('documents')).toBeNull()
     for (const step of REGISTER_STEPS.slice(1)) {
       expect(nextStep(prevStep(step)!)).toBe(step)
     }
@@ -63,5 +65,17 @@ describe('a tap has to belong to the step it lands on', () => {
       expect(STEP_LABEL[step]).toBeTruthy()
       expect(STEP_FIELD[step]).toBeTruthy()
     }
+  })
+})
+
+// The count is said out loud in two places — "Step 4 of 14" on every screen,
+// and the knowledge answer about how long registering takes. A step added
+// without the second one moving makes the bot wrong about itself.
+describe('the number of steps, as the bot states it', () => {
+  it('matches what the answer about registering says', async () => {
+    const { KNOWLEDGE } = await import('@/lib/bot/answers/knowledge')
+    const words = ['Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen']
+    const said = KNOWLEDGE.find((e) => e.id === 'registration-time')!.answer
+    expect(said).toContain(words[TOTAL_STEPS - 10])
   })
 })

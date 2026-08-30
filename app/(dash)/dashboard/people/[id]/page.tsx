@@ -32,6 +32,24 @@ export default async function TutorPage({ params }: { params: Promise<{ id: stri
     cvUrl = data?.signedUrl ?? null
   }
 
+  // Degrees and transcripts, in the same private bucket under a different
+  // prefix. Signed one by one: a link that outlives the page is a leak.
+  const { data: documentRows } = await db
+    .from('candidate_documents')
+    .select('id, path, file_name, mime')
+    .eq('candidate_id', c.id)
+    .order('created_at', { ascending: true })
+
+  const documents: { id: number; name: string; url: string | null }[] = []
+  for (const row of documentRows ?? []) {
+    const { data } = await db.storage.from('cvs').createSignedUrl(row.path as string, 60 * 10)
+    documents.push({
+      id: row.id as number,
+      name: (row.file_name as string) ?? 'Document',
+      url: data?.signedUrl ?? null,
+    })
+  }
+
   const availability = (c.availability ?? {}) as Availability
   const gaps = missingFields({
     fullName: c.full_name, phone: c.phone, area: c.area, education: c.education,
@@ -97,6 +115,27 @@ export default async function TutorPage({ params }: { params: Promise<{ id: stri
           </a>
         ) : (
           <p className="text-sm text-neutral-500">Not uploaded.</p>
+        )}
+      </Card>
+
+      <Card className="p-4">
+        <CardHead title="Educational documents" className="mb-2" />
+        {documents.length === 0 ? (
+          <p className="text-sm text-neutral-500">None sent.</p>
+        ) : (
+          <ul className="space-y-1">
+            {documents.map((d) => (
+              <li key={d.id}>
+                {d.url ? (
+                  <a href={d.url} target="_blank" rel="noreferrer" className="text-sm text-blue-700 underline underline-offset-2">
+                    {d.name} ↗
+                  </a>
+                ) : (
+                  <span className="text-sm text-neutral-500">{d.name} — could not be opened</span>
+                )}
+              </li>
+            ))}
+          </ul>
         )}
       </Card>
 
