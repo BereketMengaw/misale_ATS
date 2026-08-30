@@ -219,8 +219,12 @@ export const copy = {
   payout: {
     notRegistered:
       'There is nothing to pay into yet — you have no profile. Register first, and I will ask for your account when you are hired.',
+    /**
+     * Kept for the profile screen, which can still say why the account is
+     * blank. Nothing blocks a tutor from filling it in early any more.
+     */
     notHiredYet:
-      'Nothing to set yet. I ask for your account at the point you are hired, so there is no reason to hand over bank details before then.',
+      'You have no placement yet, so there is nothing to pay you for — but you can set your account now and it will be there when there is.',
   },
 
   buttons: {

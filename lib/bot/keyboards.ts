@@ -61,7 +61,14 @@ export function editMenuKeyboard(): InlineKeyboard {
     kb.text(EDIT_LABEL[step], `edit:${step}`)
     if ((i + 1) % 2 === 0) kb.row()
   })
-  return kb.row().text(copy.buttons.doneEditing, 'menu:profile')
+  // The account is not a wizard step, so it is not in EDITABLE_STEPS — but it
+  // is the thing a tutor most often comes here to change, and looking for it
+  // under "Change something" and not finding it is the obvious mistake.
+  return kb
+    .row()
+    .text(copy.buttons.payoutDetails, 'menu:payout')
+    .row()
+    .text(copy.buttons.doneEditing, 'menu:profile')
 }
 
 /** After arriving on a job deep link. One button forward, one back. */

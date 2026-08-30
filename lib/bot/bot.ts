@@ -217,16 +217,14 @@ function register(bot: Bot) {
       return
     }
 
-    const { count } = await supabaseAdmin()
-      .from('placements')
-      .select('id', { count: 'exact', head: true })
-      .eq('candidate_id', candidate.id)
-
-    if (!count) {
-      await reply(ctx, copy.payout.notHiredYet, backKeyboard())
-      return
-    }
-
+    // Open to anyone registered, not only to anyone hired.
+    //
+    // This was gated on having a placement, so that the agency was not holding
+    // bank details for hundreds of applicants who never get a job. The gate
+    // cost more than it saved: a tutor who wants to enter their account early
+    // was told to wait, with no way to act on a thing they came here to do, and
+    // the operator could not point them at anything either. The hire still asks
+    // on its own for anybody who has not got round to it.
     await showPayoutDetails(ctx, candidate.id)
   })
 
