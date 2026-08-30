@@ -17,6 +17,9 @@ import { Button } from '@/components/ui/button'
 
 export const dynamic = 'force-dynamic'
 
+/** How many tutors one screen shows. The rest are reached by searching. */
+const PAGE = 100
+
 /**
  * Everyone the agency deals with. Parents had no home at all before this —
  * they existed only as a name inside whichever job they were attached to.
@@ -30,11 +33,26 @@ export default async function PeoplePage({
   const db = supabaseAdmin()
   const needle = q.trim().toLowerCase()
 
-  const [{ data: candidates, error: tutorError }, { data: clients, error: parentError }] = await Promise.all([
-    db
-      .from('candidates')
-      .select('id, full_name, phone, area, education, experience, subjects, completeness, cv_path')
-      .order('completeness', { ascending: false }),
+  // Searching and limiting in Postgres rather than in memory. Seven hundred
+  // tutors arrived from the old Google Form in one go; the page used to fetch
+  // every row and filter the array afterwards, which was fine at twenty.
+  const escaped = needle.replace(/[%,()]/g, ' ').trim()
+  const tutorSearch = escaped
+    ? `full_name.ilike.%${escaped}%,phone.ilike.%${escaped}%,area.ilike.%${escaped}%`
+    : null
+
+  let tutorQuery = db
+    .from('candidates')
+    .select('id, full_name, phone, area, education, experience, subjects, completeness, cv_path, telegram_id', {
+      count: 'exact',
+    })
+  if (tutorSearch) tutorQuery = tutorQuery.or(tutorSearch)
+
+  const [
+    { data: candidates, error: tutorError, count: tutorTotal },
+    { data: clients, error: parentError },
+  ] = await Promise.all([
+    tutorQuery.order('completeness', { ascending: false }).limit(PAGE),
     db.from('clients').select('id, full_name, phone, telegram_id, area').order('created_at', { ascending: false }),
   ])
 
@@ -59,15 +77,7 @@ export default async function PeoplePage({
     byClient.set(p.client_id, bucket)
   }
 
-  const tutors = (candidates ?? []).filter((c) =>
-    needle
-      ? [c.full_name, c.area, c.phone, (c.subjects ?? []).join(' ')]
-          .filter(Boolean)
-          .join(' ')
-          .toLowerCase()
-          .includes(needle)
-      : true,
-  )
+  const tutors = candidates ?? []
 
   const parents = (clients ?? []).filter((c) =>
     needle ? [c.full_name, c.phone, c.area].filter(Boolean).join(' ').toLowerCase().includes(needle) : true,
@@ -86,7 +96,7 @@ export default async function PeoplePage({
       <div className="flex flex-wrap items-center gap-3">
         <div className="flex items-center gap-1">
           <Tab href={`/dashboard/people${q ? `?q=${encodeURIComponent(q)}` : ''}`} active={!onParents}>
-            Tutors {(candidates ?? []).length}
+            Tutors {tutorTotal ?? 0}
           </Tab>
           <Tab
             href={`/dashboard/people?tab=parents${q ? `&q=${encodeURIComponent(q)}` : ''}`}
@@ -121,13 +131,27 @@ export default async function PeoplePage({
           </EmptyState>
         ) : (
           <Card>
+            {(tutorTotal ?? 0) > tutors.length && (
+              <p className="border-b border-neutral-100 px-4 py-2 text-xs text-neutral-500">
+                Showing {tutors.length} of {tutorTotal}. Search by name, phone or area to find the rest.
+              </p>
+            )}
             <Rows>
               {tutors.map((c) => (
                 <LinkRow key={c.id} href={`/dashboard/people/${c.id}`}>
                   <div className="min-w-0 grow">
-                    <p className="text-sm font-medium">
+                    <p className="flex items-center gap-2 text-sm font-medium">
                       {c.full_name ?? 'Unnamed'}
-                      {c.cv_path && <span className="ml-2 text-xs font-normal text-neutral-400">CV</span>}
+                      {c.cv_path && <span className="text-xs font-normal text-neutral-400">CV</span>}
+                      {/* Whether the bot can reach them at all. An imported
+                          tutor is ranked and shortlisted like anyone else, but
+                          a DM to one goes nowhere — worth seeing before you
+                          wonder why they never replied. */}
+                      {!c.telegram_id && (
+                        <span className="rounded bg-neutral-100 px-1.5 py-0.5 text-[11px] font-normal text-neutral-500">
+                          not on the bot
+                        </span>
+                      )}
                     </p>
                     <p className="truncate text-xs text-neutral-500">
                       {[c.area, c.phone, labelFor(EDUCATION, c.education), labelFor(EXPERIENCE, c.experience)]
