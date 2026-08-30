@@ -124,8 +124,15 @@ const PRAISE =
 const APOLOGY =
   /\b(?:so |very |really |terribly |extremely )?sorry\b|\bmy apolog\w*|\bapolog(?:y|ies|ise[ds]?|ize[ds]?|ising|izing)\b|\bforgive me\b|\bmy (?:bad|fault|mistake)\b|\bpardon me\b/i
 
+/**
+ * A bare "next week" is deliberately NOT here. It reads as a delay and is
+ * just as often availability: "I can start next week" is a tutor telling us
+ * when they are free, and answering that with "no rush, take your time" is
+ * the opposite of what they said. A delay has to say so — "maybe next week",
+ * "I'll get back to you next week" — both of which still match above.
+ */
 const LATER =
-  /\bi(?:'?ll| will| shall| am going to|'?m going to)? ?(?:get back|come back|write back|reply|answer you|let you know|update you|decide|think about it|think it over|think about this)\b|\bnot (?:now|today|right now|at the moment|yet)\b|\bi(?:'?m| am) (?:busy|at work|in class|in a meeting|travel\w*|out of town|not free|on the road)\b|\blet me (?:think|check|see|ask|confirm|talk to)\b|\bmaybe (?:later|next week|tomorrow|another time)\b|\bgive me (?:some |a little )?time\b|\bi(?:'?ll| will) (?:be back|come back|check later)\b|\bnext (?:week|month|time)\b|\bafter (?:my |the )?(?:exam|exams|semester|holiday)\w*\b/i
+  /\bi(?:'?ll| will| shall| am going to|'?m going to)? ?(?:get back|come back|write back|reply|answer you|let you know|update you|decide|think about it|think it over|think about this)\b|\bnot (?:now|today|right now|at the moment|yet)\b|\bi(?:'?m| am) (?:busy|at work|in class|in a meeting|travel\w*|out of town|not free|on the road)\b|\blet me (?:think|check|see|ask|confirm|talk to)\b|\bmaybe (?:later|next week|tomorrow|another time)\b|\bgive me (?:some |a little )?time\b|\bi(?:'?ll| will) (?:be back|come back|check later)\b|\bafter (?:my |the )?(?:exam|exams|semester|holiday)\w*\b/i
 
 /**
  * Somebody typing their qualifications into the chat. Common, and until now

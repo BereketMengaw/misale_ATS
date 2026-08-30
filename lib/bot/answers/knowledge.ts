@@ -193,6 +193,23 @@ export const KNOWLEDGE: KnowledgeEntry[] = [
       'It is optional but it helps. The registration collects everything we score you on by buttons, so a CV is extra evidence a person reads when the top few are close. A photo of it is fine.',
   },
   {
+    /**
+     * Asked as "so how do i can upload" and answered with the entry on
+     * whether a CV is needed, which never says how to send one. Two different
+     * questions: that one is "should I", this one is "how".
+     */
+    id: 'upload-cv',
+    topic: 'How do I send my CV?',
+    keywords: [
+      'how do i upload', 'how to upload', 'where do i upload', 'how do i send my cv',
+      'send my cv', 'send you my cv', 'upload my cv', 'attach my cv', 'add my cv',
+      'submit my cv', 'how do i attach', 'how do i send the file', 'send the document',
+      'upload the document', 'how do i can upload',
+    ],
+    answer:
+      'Send it to me right here, as a file or a photo — a PDF, a Word document or a clear picture all work, up to 10 MB. The first one you send becomes your CV; anything after it is kept beside your profile as another document. You need a profile for me to put it on, so register first if you have not.',
+  },
+  {
     id: 'area',
     topic: 'Where would I teach?',
     keywords: [
@@ -361,6 +378,25 @@ export const KNOWLEDGE: KnowledgeEntry[] = [
     ],
     answer:
       'You get a message here with the job, what you are paid, and the family. You meet them, agree the times directly, and teach. Your one-off pre-payment is due within two weeks of meeting them and before your first salary — after that there is nothing to send back to us.',
+  },
+  {
+    /**
+     * Asked as "when can i start" and matched nothing at all — not one entry
+     * scored above zero, so it went to the model in wide mode and came back
+     * uncovered. Every fact in it is already asserted by after-hired,
+     * family-contact and lesson-times; none of them was reachable by these
+     * words.
+     */
+    id: 'when-start',
+    topic: 'When can I start teaching?',
+    keywords: [
+      'when can i start', 'when do i start', 'when will i start', 'when can i begin',
+      'how soon can i start', 'start date', 'when do lessons start',
+      'when does teaching start', 'ready to start', 'i can start', 'available to start',
+      'start immediately', 'start next week',
+    ],
+    answer:
+      'As soon as you are hired and you and the family have agreed the times. The message telling you the job is yours carries the family name and number; you meet them, settle the days and hours between you, and teach. Nobody here sets your start date. Until a job is yours there is nothing to start.',
   },
   {
     id: 'family-contact',
