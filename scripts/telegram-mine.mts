@@ -34,14 +34,23 @@ if (!apiId || !apiHash) {
   process.exit(1)
 }
 
-/** How many recent messages to read per conversation. */
-const PER_CHAT = Number(process.env.MINE_PER_CHAT || 300)
+/**
+ * Messages per conversation, newest first. 0 means the whole history — which
+ * Telegram throttles, so a first full pull is better done from an export.
+ */
+const PER_CHAT = Number(process.env.MINE_PER_CHAT ?? 300)
 /** How many conversations to walk, most recent first. */
 const CHAT_LIMIT = Number(process.env.MINE_CHATS || 100)
 
 const saved = process.env.TELEGRAM_SESSION?.trim() ?? ''
 const session = new StringSession(saved)
-const client = new TelegramClient(session, apiId, apiHash, { connectionRetries: 3 })
+const client = new TelegramClient(session, apiId, apiHash, {
+  connectionRetries: 3,
+  // Telegram answers a heavy history pull with FLOOD_WAIT. Below this many
+  // seconds gramjs sleeps and retries by itself; above it, it throws and the
+  // loop below reports what it managed rather than losing the whole run.
+  floodSleepThreshold: 120,
+})
 
 await client.start({
   phoneNumber: async () => await input.text('Phone number (+251...): '),
@@ -68,13 +77,24 @@ for await (const dialog of client.iterDialogs({ limit: CHAT_LIMIT })) {
   if (!dialog.isUser) continue
   chats++
 
-  for await (const msg of client.iterMessages(dialog.id, { limit: PER_CHAT })) {
-    if (msg.out) continue // your own reply
-    const text = typeof msg.message === 'string' ? msg.message : ''
-    if (!text) continue
-    messages.push({ text, from: String(dialog.id) })
+  let read = 0
+  try {
+    // limit: undefined walks the conversation back to its first message.
+    for await (const msg of client.iterMessages(dialog.id, { limit: PER_CHAT || undefined })) {
+      if (msg.out) continue // your own reply
+      const text = typeof msg.message === 'string' ? msg.message : ''
+      if (!text) continue
+      messages.push({ text, from: String(dialog.id) })
+      read++
+    }
+  } catch (err) {
+    // A throttle or a chat we cannot open must not cost us the other hundred.
+    console.warn(`  skipped the rest of one conversation: ${err instanceof Error ? err.message : err}`)
   }
+
+  process.stdout.write(`\r  ${chats} conversations · ${messages.length} messages read`)
 }
+process.stdout.write('\n')
 
 await client.disconnect()
 
