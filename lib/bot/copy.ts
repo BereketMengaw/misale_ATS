@@ -32,11 +32,8 @@ export const copy = {
      * must never offer a person, a number to call or a promise to follow up —
      * see the design rule in CLAUDE.md.
      */
-    uncovered: [
-      "I don't have an answer for that one.",
-      '',
-      'I can explain how hiring works, what you are paid, our fee and the pre-payment, how you are ranked, and how lessons and hours run. Pick one below, or ask me another way.',
-    ].join('\n'),
+    uncovered:
+      "That one I can't answer — nobody has written it down yet, and I would rather say so than guess. Try me another way, or ask about the pay, our fee, the pre-payment, or how the hiring runs.",
 
     /** Asked something in the middle of registering. Answer, then point back. */
     backToRegistration: 'Now — back to your registration. Tap the buttons above to carry on.',

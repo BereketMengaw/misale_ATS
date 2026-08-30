@@ -44,6 +44,7 @@ const SYSTEM = [
   '- List in usedFactIds the id of every fact your answer relies on. If that list would be empty, the FACTS did not answer the question: set covered to false.',
   '- A fact that is merely about a similar word does not count. "What if I want to stop teaching" is not answered by a fact about deleting your data.',
   '- CONVERSATION is what has already been said here. Resolve "it", "that", "are you sure", "what about this" against it, and do not repeat an answer you have already given in the same words.',
+  '- "I mean...", "no, I meant", "after I started" and the like correct the question before them. Answer the corrected question, and do not repeat the answer they just told you was wrong.',
   '- ABOUT THEM says where this person stands. Use it to answer their situation rather than in general — someone already hired does not need to be told how to apply.',
   '- Neither CONVERSATION nor ABOUT THEM is a fact. Never quote them as one, and never state a status they do not contain.',
 ].join('\n')

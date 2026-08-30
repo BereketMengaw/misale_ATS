@@ -1,7 +1,7 @@
 import { Bot, type Context, type InlineKeyboard } from 'grammy'
 import { env } from '@/lib/env'
 import { copy } from './copy'
-import { answerKeyboard, applyKeyboard, backKeyboard, mainMenu, openJobsKeyboard, profileKeyboard, registerKeyboard } from './keyboards'
+import { applyKeyboard, backKeyboard, mainMenu, openJobsKeyboard, profileKeyboard, registerKeyboard } from './keyboards'
 import { getSession, saveSession } from './session'
 import { logMessage } from './log'
 import { countApply, getJob, isLive, listOpenJobs } from './jobs'
@@ -17,7 +17,7 @@ import type { Availability } from '@/lib/candidates/availability'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { recordCommissionDecision } from '@/lib/hiring/service'
 import { markTalentApplied } from '@/lib/talent/service'
-import { entryById, KNOWLEDGE } from './answers/knowledge'
+import { entryById } from './answers/knowledge'
 import { answerFor, looksLikeAQuestion } from './answers/service'
 import { detectIntent } from './answers/intent'
 
@@ -176,7 +176,7 @@ function register(bot: Bot) {
     await ctx.answerCallbackQuery()
     const entry = entryById(ctx.match![1])
     if (!entry) {
-      await reply(ctx, copy.answers.uncovered, answerKeyboard(defaultTopics()))
+      await reply(ctx, copy.answers.uncovered)
       return
     }
     await reply(ctx, entry.answer)
@@ -236,9 +236,10 @@ function register(bot: Bot) {
       return
     }
 
-    // A miss is the one place buttons earn their keep: "I don't know" with no
-    // way forward is a dead end, so the nearest topics come with it.
-    await reply(ctx, copy.answers.uncovered, answerKeyboard(answered.related))
+    // No buttons here either. A menu under a reply reads as a phone tree, and
+    // that is as true of "I don't know" as of an answer — the way out of it is
+    // asking again, not picking from a list.
+    await reply(ctx, copy.answers.uncovered)
     if (midRegistration) await reply(ctx, copy.answers.backToRegistration)
   })
 
@@ -397,10 +398,6 @@ async function reply(ctx: Context, text: string, keyboard?: InlineKeyboard, pars
   })
 }
 
-/** The three topics offered when there is nothing better to offer. */
-function defaultTopics() {
-  return KNOWLEDGE.filter((e) => ['how-it-works', 'pay', 'hear-back'].includes(e.id))
-}
 
 /**
  * Acts on what someone meant, when they were not asking a question. Returns
