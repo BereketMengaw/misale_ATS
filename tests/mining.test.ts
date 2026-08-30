@@ -132,6 +132,16 @@ describe('what the bot does before it tries to answer', () => {
     expect(detectIntent('is this still open? i want to apply')).toBe('apply')
   })
 
+  // Built entirely from polite words, and still a question — and after an
+  // answer, a follow-up to it. Treating it as a courtesy replied "Any time"
+  // to somebody asking whether we meant what we just said.
+  it('does not mistake a question for a courtesy', () => {
+    for (const t of ['Are you sure', 'are you sure?', 'Is it ok?', 'Can you?', 'Really?']) {
+      expect(isCourtesy(t), t).toBe(false)
+      expect(detectIntent(t), t).not.toBe('courtesy')
+    }
+  })
+
   it('leaves a real question to the answerer', () => {
     for (const t of ['how much will i be paid', 'what is the pre payment',
                      'do i need a cv', 'why do you need my phone number']) {

@@ -39,6 +39,14 @@ export type Question = {
   text: string
   facts: Fact[]
   fallback: Fact | null
+  /**
+   * The exchange immediately before this one, when there was a recent one.
+   *
+   * Without it "are you sure", "what about this" and "the first one" are
+   * unanswerable — and they are a large share of what people actually send.
+   * The bot answered them anyway, from whatever the words happened to match.
+   */
+  previous?: { question: string; answer: string } | null
 }
 
 export type Answer = {

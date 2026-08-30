@@ -56,8 +56,18 @@ const PICKS_FROM_A_LIST =
 const ASKS_IF_OPEN =
   /\b(?:still (?:available|open|there|on)|is (?:it|this) (?:available|open|closed|taken|filled)|already (?:taken|filled|closed)|anything new|any new (?:job|post)|new (?:job|post)s?\b)/i
 
+/**
+ * "Are you sure" is built entirely from polite words and is still a question —
+ * and, after an answer, a follow-up to it. Anything opening with an
+ * interrogative is left for the answerer.
+ */
+const OPENS_A_QUESTION =
+  /^(?:are|is|was|were|do|does|did|can|could|will|would|should|have|has|how|what|why|when|where|which|who)\b/i
+
 export function isCourtesy(text: string): boolean {
-  const words = normalize(text).split(' ').filter(Boolean)
+  const t = text.trim()
+  if (t.endsWith('?') || OPENS_A_QUESTION.test(t)) return false
+  const words = normalize(t).split(' ').filter(Boolean)
   if (words.length === 0 || words.length > 6) return false
   return words.every((w) => COURTESY_WORDS.has(w))
 }

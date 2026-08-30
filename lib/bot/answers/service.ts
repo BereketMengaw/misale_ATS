@@ -1,4 +1,5 @@
 import { supabaseAdmin } from '@/lib/supabase/admin'
+import { getSession, saveSession } from '@/lib/bot/session'
 import { activeProviderName, answerQuestion } from '@/lib/ai/provider'
 import { KNOWLEDGE, type KnowledgeEntry } from './knowledge'
 import { normalize, retrieve } from './retrieve'
@@ -25,11 +26,49 @@ const CACHE_DAYS = 30
  */
 const UNCOVERED_CACHE_HOURS = 24
 
+/**
+ * How long the last exchange stays relevant. Long enough that someone reading
+ * an answer and typing "are you sure" is understood; short enough that
+ * tomorrow's question is not resolved against yesterday's.
+ */
+const FOLLOW_UP_MINUTES = 30
+
 /** Shorter than this is a greeting or a stray tap, not a question. */
 const MIN_QUESTION_LENGTH = 6
 
 /** Longer than this is a story. Truncate before it reaches a token counter. */
 const MAX_QUESTION_LENGTH = 500
+
+type LastTurn = { question: string; answer: string; factIds: string[]; at: string }
+
+/** The previous exchange, if it is recent enough to be what "it" refers to. */
+async function recentTurn(telegramId: number): Promise<LastTurn | null> {
+  try {
+    const session = await getSession(telegramId)
+    const last = session?.data?.lastTurn as LastTurn | undefined
+    if (!last?.question || !last.at) return null
+    const age = Date.now() - new Date(last.at).getTime()
+    return age <= FOLLOW_UP_MINUTES * 60 * 1000 ? last : null
+  } catch (err) {
+    console.error('could not read the last turn', err)
+    return null
+  }
+}
+
+async function rememberTurn(
+  telegramId: number,
+  chatId: number,
+  turn: Omit<LastTurn, 'at'>,
+): Promise<void> {
+  try {
+    await saveSession(telegramId, chatId, {
+      data: { lastTurn: { ...turn, at: new Date().toISOString() } },
+    })
+  } catch (err) {
+    // Losing the memory costs context, never the answer.
+    console.error('could not remember the last turn', err)
+  }
+}
 
 export type AnsweredQuestion = {
   text: string
@@ -143,6 +182,15 @@ export async function answerFor(
   const matched = retrieve(question, 3).map((m) => m.entry)
   const related = relatedTo(matched)
   const hasModel = activeProviderName() !== 'template'
+  const previous = await recentTurn(telegramId)
+
+  // "Are you sure?" retrieves nothing, because it is about whatever came
+  // before it. Carry the last answer's facts rather than handing the model
+  // everything and hoping, or telling them we have no answer.
+  const carried =
+    matched.length === 0 && previous
+      ? previous.factIds.map((id) => KNOWLEDGE.find((e) => e.id === id)).filter(Boolean as unknown as (e: KnowledgeEntry | undefined) => e is KnowledgeEntry)
+      : []
 
   const finish = async (text: string, covered: boolean, source: string) => {
     await record({
@@ -162,11 +210,17 @@ export async function answerFor(
   // no fact to send. With one, hand it the whole knowledge base and let it
   // judge: keyword matching misses paraphrases ("can I teach two families at
   // once"), and reading eighteen short facts is exactly what it is good at.
-  const wide = matched.length === 0
-  if (wide && !hasModel) return await finish('', false, 'unmatched')
+  const wide = matched.length === 0 && carried.length === 0
+  if (matched.length === 0 && carried.length === 0 && !hasModel) {
+    return await finish('', false, 'unmatched')
+  }
 
-  const hit = await cached(questionNorm)
-  if (hit) return await finish(hit.answer, hit.covered, 'cache')
+  // A follow-up is not cacheable: "are you sure" means something different
+  // after every answer, so the same words must not reuse the same reply.
+  if (!previous) {
+    const hit = await cached(questionNorm)
+    if (hit) return await finish(hit.answer, hit.covered, 'cache')
+  }
 
   // Out of questions for the hour. The matched fact is still a real answer;
   // an unmatched one has nothing to degrade to, so it is left uncovered.
@@ -176,11 +230,22 @@ export async function answerFor(
       : await finish(matched[0].answer, true, 'rate-limited')
   }
 
+  const facts = wide ? KNOWLEDGE : matched.length ? matched : carried
   const answer = await answerQuestion({
     text: question,
-    facts: (wide ? KNOWLEDGE : matched).map(asFact),
+    facts: facts.map(asFact),
     fallback: matched[0] ? asFact(matched[0]) : null,
+    previous: previous ? { question: previous.question, answer: previous.answer } : null,
   })
 
-  return await finish(answer.text, answer.covered, wide ? `${answer.generatedBy}:wide` : answer.generatedBy)
+  if (answer.covered && answer.text) {
+    await rememberTurn(telegramId, chatId, {
+      question,
+      answer: answer.text,
+      factIds: answer.usedFactIds?.length ? answer.usedFactIds : facts.map((e) => e.id),
+    })
+  }
+
+  const source = wide ? `${answer.generatedBy}:wide` : carried.length ? `${answer.generatedBy}:follow-up` : answer.generatedBy
+  return await finish(answer.text, answer.covered, source)
 }
