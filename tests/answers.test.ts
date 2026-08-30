@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { KNOWLEDGE, entryById } from '@/lib/bot/answers/knowledge'
+import { KNOWLEDGE, entryById, knowledgeFingerprint } from '@/lib/bot/answers/knowledge'
 import { DEFAULT_AREAS } from '@/lib/candidates/options'
 import { bestAnswer, normalize, retrieve, scoreAll } from '@/lib/bot/answers/retrieve'
 import { rejectAnswer } from '@/lib/ai/provider'
@@ -243,5 +243,42 @@ describe('guards on what a model is allowed to say', () => {
     for (const entry of KNOWLEDGE) {
       expect(rejectAnswer(entry.answer)).toBeNull()
     }
+  })
+})
+
+/**
+ * The cache holds an answer for thirty days. Correcting a fact has to take
+ * effect immediately, or the bot goes on asserting something that is no longer
+ * true — it spent a month telling tutors to tap a button that had been removed.
+ */
+describe('the knowledge fingerprint', () => {
+  const one = KNOWLEDGE.slice(0, 2)
+
+  it('is the same for the same facts', () => {
+    expect(knowledgeFingerprint(one)).toBe(knowledgeFingerprint(one))
+  })
+
+  it('does not depend on the order they arrive in', () => {
+    expect(knowledgeFingerprint([...one].reverse())).toBe(knowledgeFingerprint(one))
+  })
+
+  it('changes the moment an answer is reworded', () => {
+    const edited = [{ ...one[0], answer: `${one[0].answer} And one more thing.` }, one[1]]
+    expect(knowledgeFingerprint(edited)).not.toBe(knowledgeFingerprint(one))
+  })
+
+  it('changes when a fact is added or taken away', () => {
+    expect(knowledgeFingerprint(one.slice(0, 1))).not.toBe(knowledgeFingerprint(one))
+    expect(knowledgeFingerprint([...one, KNOWLEDGE[2]])).not.toBe(knowledgeFingerprint(one))
+  })
+
+  /** Keywords and topics steer retrieval, not what gets asserted. */
+  it('ignores changes that do not change what is said', () => {
+    const retagged = [{ ...one[0], keywords: [...one[0].keywords, 'brand new phrase'] }, one[1]]
+    expect(knowledgeFingerprint(retagged)).toBe(knowledgeFingerprint(one))
+  })
+
+  it('is short enough to live in a cache key', () => {
+    expect(knowledgeFingerprint(KNOWLEDGE).length).toBeLessThanOrEqual(8)
   })
 })

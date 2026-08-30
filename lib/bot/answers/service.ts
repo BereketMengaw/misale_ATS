@@ -2,7 +2,7 @@ import { supabaseAdmin } from '@/lib/supabase/admin'
 import { getSession, saveSession } from '@/lib/bot/session'
 import { standingOf } from './standing'
 import { activeProviderName, answerQuestion } from '@/lib/ai/provider'
-import { KNOWLEDGE, type KnowledgeEntry } from './knowledge'
+import { KNOWLEDGE, knowledgeFingerprint, type KnowledgeEntry } from './knowledge'
 import { normalize, retrieve } from './retrieve'
 
 /**
@@ -190,11 +190,20 @@ export async function answerFor(
   const [thread, standing] = await Promise.all([recentThread(telegramId), standingOf(telegramId)])
   const previous = thread.length ? thread[thread.length - 1] : null
 
-  // The cache key carries who was asking. The same words now get a different
-  // answer depending on where someone stands, so keying on the question alone
-  // would serve a stranger the reply written for somebody already teaching.
-  // Nothing but the cache reads question_norm, so it can hold both.
-  const questionNorm = `${normalize(question)}|${standing?.key ?? 'unknown'}`
+  // The cache key carries who was asking AND what the facts currently say.
+  //
+  // Standing, because the same words get a different answer depending on where
+  // someone stands: keying on the question alone would serve a stranger the
+  // reply written for somebody already teaching.
+  //
+  // The fingerprint, because a corrected fact must not go on being served from
+  // a month-old row. Editing knowledge.ts used to change nothing for thirty
+  // days — the bot kept telling tutors to tap "Register again" after that
+  // button was removed. Now an edited fact simply stops matching its old rows.
+  //
+  // Nothing but the cache reads question_norm, so it can hold all three.
+  const fingerprint = knowledgeFingerprint(matched.length ? matched : KNOWLEDGE)
+  const questionNorm = `${normalize(question)}|${standing?.key ?? 'unknown'}|${fingerprint}`
 
   // "Are you sure?" retrieves nothing, because it is about whatever came
   // before it. Carry the last answer's facts rather than handing the model

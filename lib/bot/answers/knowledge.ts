@@ -122,9 +122,11 @@ export const KNOWLEDGE: KnowledgeEntry[] = [
     keywords: [
       'change', 'edit', 'update', 'wrong', 'mistake', 'correct', 'fix',
       'my profile', 'my details', 'phone number', 'my number', 'register again',
+      'new number', 'changed my number', 'change my phone', 'wrong phone',
+      'change my subjects', 'change my area', 'moved', 'i moved',
     ],
     answer:
-      'Open "My profile" to see what we hold, then tap "Register again" to replace it. It is the same buttons as the first time and it overwrites the old answers.',
+      'Open "My profile" and tap "Change something". Pick the one thing that is wrong — your phone number, your area, your subjects, anything — answer it again, and the rest of your profile stays exactly as it is. You do not have to register a second time.',
   },
   {
     id: 'delete-data',
@@ -387,8 +389,58 @@ export const KNOWLEDGE: KnowledgeEntry[] = [
     answer:
       'The family is choosing between the few who accepted. You will hear here either way, and there is nothing to do in the meantime — no one to call and nothing to send.',
   },
+  {
+    id: 'where-to-send-prepayment',
+    topic: 'Where do I send the pre-payment?',
+    keywords: [
+      'where do i pay', 'where to pay', 'where do i send', 'which account',
+      'account number', 'bank account', 'send the money', 'how do i pay you',
+      'how to send', 'cbe account', 'telebirr number', 'payment detail',
+    ],
+    // Deliberately does NOT restate the account number. The model rewrites
+    // whatever is here, and a rewritten account number is money sent nowhere —
+    // the same reason JOBS_GROUP lives in copy.ts and not in this file. The
+    // real digits are in the message the bot sends verbatim from settings.
+    answer:
+      'The account is in the message you were sent when you were hired, along with the code to put in the payment reason. That code is what matches the payment to you, so send it with the code rather than without. If you cannot find the message, open Payment details in the menu and I will send it again.',
+  },
+  {
+    id: 'how-you-pay-me',
+    topic: 'How do you pay me?',
+    keywords: [
+      'how do you pay me', 'how will i be paid', 'where will you send',
+      'my account', 'my bank', 'change my account', 'wrong account',
+      'update account', 'pay into',
+    ],
+    answer:
+      'Into the account you gave us when you were hired — Telebirr, CBE or another bank, whichever you chose. You get a message here when it is sent. To change the account, tap Payment details in the menu; there is nobody to ring about it.',
+  },
 ]
 
 export function entryById(id: string): KnowledgeEntry | undefined {
   return KNOWLEDGE.find((e) => e.id === id)
+}
+
+/**
+ * A short, stable fingerprint of what some facts currently SAY. PURE.
+ *
+ * Answers are cached for thirty days against the question that produced them.
+ * That was fine while facts only got added — `UNCOVERED_CACHE_HOURS` already
+ * lets a newly written entry take effect the next day. Correcting an entry had
+ * no such escape: the old wording kept being served for a month, and the bot
+ * went on telling tutors to tap a button that had been removed.
+ *
+ * Folding this into the cache key means an edited fact simply stops matching
+ * its old rows. Nothing has to be purged and nothing has to be remembered.
+ */
+export function knowledgeFingerprint(entries: KnowledgeEntry[]): string {
+  const text = [...entries]
+    .map((e) => `${e.id}:${e.answer}`)
+    .sort()
+    .join('\n')
+
+  // djb2. Not a security hash — it only has to change when the words do.
+  let hash = 5381
+  for (let i = 0; i < text.length; i++) hash = ((hash * 33) ^ text.charCodeAt(i)) >>> 0
+  return hash.toString(36)
 }
