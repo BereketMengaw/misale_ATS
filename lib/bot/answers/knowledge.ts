@@ -124,7 +124,7 @@ export const KNOWLEDGE: KnowledgeEntry[] = [
       'your phone number', 'office', 'agent',
     ],
     answer:
-      'No person reads this chat — I answer it. I can explain how the work, the pay and the process run, but everything that actually happens here happens through the buttons.',
+      'You are talking to a bot, and I would rather say so plainly than let you wonder. No person reads this chat — I answer it myself, from what the agency has written down. I can explain the work, the pay and how the hiring goes, and everything that actually happens here happens through the buttons.',
   },
   {
     id: 'ranking',

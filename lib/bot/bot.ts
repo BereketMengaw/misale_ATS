@@ -1,6 +1,6 @@
 import { Bot, InlineKeyboard, type Context } from 'grammy'
 import { env } from '@/lib/env'
-import { copy } from './copy'
+import { copy, pick } from './copy'
 import { applyKeyboard, backKeyboard, editMenuKeyboard, mainMenu, openJobsKeyboard, profileKeyboard, registerKeyboard } from './keyboards'
 import { clearFlow, getSession, saveSession } from './session'
 import { logMessage } from './log'
@@ -22,6 +22,8 @@ import { isEditable } from './flows/steps'
 import { entryById } from './answers/knowledge'
 import { answerFor, looksLikeAQuestion } from './answers/service'
 import { detectIntent, isLeavingNotice } from './answers/intent'
+import { readSmallTalk, type SmallTalk } from './smalltalk'
+import { standingOf } from './answers/standing'
 import { recordQuitNotice } from '@/lib/notices/service'
 import { attachFile } from '@/lib/candidates/store'
 import { ACCEPTED_MIME, MAX_UPLOAD_BYTES } from '@/lib/candidates/files'
@@ -244,7 +246,7 @@ function register(bot: Bot) {
     await ctx.answerCallbackQuery()
     const entry = entryById(ctx.match![1])
     if (!entry) {
-      await reply(ctx, copy.answers.uncovered)
+      await reply(ctx, pick(copy.answers.uncovered, ctx.callbackQuery.id.length))
       return
     }
     await reply(ctx, entry.answer)
@@ -295,10 +297,21 @@ function register(bot: Bot) {
     // nobody is left waiting on a person.
     if (isLeavingNotice(text)) await recordQuitNotice(ctx.from.id, text)
 
+    // Which of several wordings goes out. Climbs by at least one per message,
+    // so nobody gets the same sentence twice running.
+    const seed = ctx.message.message_id
+
+    // Intent first: "thanks, I want to apply" is somebody applying, not
+    // somebody thanking us.
     if (await handleIntent(ctx, text)) return
 
+    // Then what they actually said. Hello, sorry, goodbye, "I'll get back to
+    // you", "I'm a physics teacher" — none of it is a question and none of it
+    // deserves a menu, which is what all of it used to get.
+    if (await handleSmallTalk(ctx, text, seed)) return
+
     if (!looksLikeAQuestion(text)) {
-      await reply(ctx, copy.menu, mainMenu())
+      await reply(ctx, pick(copy.notSure, seed), mainMenu())
       return
     }
 
@@ -343,7 +356,7 @@ function register(bot: Bot) {
       nearest.text(entry.topic, `ask:${entry.id}`).row()
     }
 
-    await reply(ctx, copy.answers.uncovered, nearest)
+    await reply(ctx, pick(copy.answers.uncovered, seed), nearest)
     if (midRegistration) await reply(ctx, copy.answers.backToRegistration)
   })
 
@@ -544,7 +557,79 @@ async function handleIntent(ctx: Context, text: string): Promise<boolean> {
     return true
   }
 
-  await reply(ctx, copy.answers.courtesy)
+  // 'courtesy' deliberately falls through. It is the bucket the miner counts,
+  // but it is far too coarse to reply from: hello, thank you, sorry and
+  // goodbye are all in it. handleSmallTalk() picks the words.
+  return false
+}
+
+/**
+ * A reply to something that was not a question — and not a menu.
+ *
+ * Everything here is written copy chosen by message id. No model runs on this
+ * path, which matters twice over: it is the path a stranger can hit fastest,
+ * and a greeting is not worth a token.
+ */
+async function handleSmallTalk(ctx: Context, text: string, seed: number): Promise<boolean> {
+  const kind: SmallTalk | null = readSmallTalk(text)
+
+  // Matched no kind, but the intent layer still called it a courtesy — some
+  // stacked politeness the finer matchers did not name. A short acknowledgement
+  // beats a menu.
+  if (!kind) {
+    if (detectIntent(text) !== 'courtesy') return false
+    await reply(ctx, pick(copy.answers.courtesy, seed))
+    return true
+  }
+
+  const s = copy.smalltalk
+
+  // A greeting is the one place worth a query. The bot knows whether this is a
+  // stranger, somebody waiting to hear, or somebody who has been teaching for a
+  // month — and greeting all three identically is the tell.
+  if (kind === 'greeting') {
+    const standing = await standingOf(ctx.from!.id)
+    const key = standing?.key ?? 'new'
+    const lines =
+      key === 'placed' ? s.greeting.teaching
+      : key === 'new' ? s.greeting.stranger
+      : s.greeting.known
+    await reply(ctx, pick(lines, seed), key === 'new' ? mainMenu() : undefined)
+    return true
+  }
+
+  // Annoyed, and the nearest topics are the only useful thing to offer:
+  // another menu is what annoyed them.
+  if (kind === 'frustrated') {
+    await reply(ctx, pick(s.frustrated, seed), mainMenu())
+    return true
+  }
+
+  // Told the bot their qualifications. The profile is where that counts, so
+  // hand over the way to put it there rather than describing it.
+  if (kind === 'introduces-themselves') {
+    const registered = Boolean(await findCandidate(ctx.from!.id))
+    await reply(
+      ctx,
+      pick(s.introduces, seed),
+      registered
+        ? new InlineKeyboard().text(copy.buttons.editProfile, 'menu:edit')
+        : registerKeyboard(),
+    )
+    return true
+  }
+
+  const said: Record<Exclude<SmallTalk, 'greeting' | 'frustrated' | 'introduces-themselves'>, readonly string[]> = {
+    'how-are-you': s.howAreYou,
+    thanks: s.thanks,
+    affirm: s.affirm,
+    apology: s.apology,
+    later: s.later,
+    farewell: s.farewell,
+    praise: s.praise,
+  }
+
+  await reply(ctx, pick(said[kind], seed))
   return true
 }
 

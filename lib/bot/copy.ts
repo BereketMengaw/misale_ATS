@@ -15,6 +15,20 @@
  */
 export const JOBS_GROUP = '@wisdomwayteachersteam'
 
+/**
+ * Which of several wordings goes out this time.
+ *
+ * Seeded from the Telegram message id rather than at random: it is free, it is
+ * already in hand, and because ids climb by at least one per message the same
+ * person never draws the same variant twice running. A random pick can, and
+ * "Any time." twice in a row undoes the whole point of having variants.
+ *
+ * Deterministic, so a test can assert what a given message gets back.
+ */
+export function pick<T>(variants: readonly T[], seed: number): T {
+  return variants[Math.abs(Math.trunc(seed)) % variants.length]
+}
+
 export const copy = {
   welcome: [
     'Welcome 👋',
@@ -46,8 +60,11 @@ export const copy = {
      * must never offer a person, a number to call or a promise to follow up —
      * see the design rule in CLAUDE.md.
      */
-    uncovered:
+    uncovered: [
       "That one I can't answer — nobody has written it down yet, and I would rather say so than guess. These are the nearest things I do know, or ask me again in different words.",
+      "I don't have that one written down, and I'd sooner tell you so than invent something. Here are the closest topics I do have — or put it to me in different words.",
+      "That hasn't been written down here yet, so I won't guess at it. These are the nearest things I know about.",
+    ],
 
     /** Asked something in the middle of registering. Answer, then point back. */
     backToRegistration: 'Now — back to your registration. Tap the buttons above to carry on.',
@@ -71,9 +88,130 @@ export const copy = {
      */
     picksFromAList: 'I am not sure which one you mean — tap it below and I will know.',
 
-    /** "Okay thank you." Worth a reply, but not an answer. */
-    courtesy: 'Any time. Ask me anything else whenever you need to.',
+    /**
+     * "Okay thank you." Worth a reply, but not an answer.
+     *
+     * The fallback only. What someone actually said — hello, sorry, goodbye,
+     * thanks — is answered from `copy.smalltalk`, because replying "Any time."
+     * to "Hello" is the single loudest way a bot announces it is one.
+     */
+    courtesy: ['Any time.', 'Of course.', 'Sure thing.'],
   },
+
+  /**
+   * What to say to something that is not a question.
+   *
+   * Every one of these is a list, and which line goes out is picked from the
+   * Telegram message id — so consecutive messages never draw the same variant,
+   * and saying "thanks" three times does not get the same sentence three times.
+   * That repetition, more than any single wording, is what made the bot read
+   * like a machine.
+   *
+   * Nothing here offers a person, and nothing here implies one is reading. See
+   * the design rule in CLAUDE.md — `frustrated` is where that matters most,
+   * because somebody who is annoyed is exactly who a bot wants to hand off.
+   */
+  smalltalk: {
+    /**
+     * A greeting, answered according to where the person actually stands.
+     * The bot knows — it is in the database — and greeting a tutor who has
+     * been teaching for a month as though they had just arrived is the kind
+     * of thing only software does.
+     */
+    greeting: {
+      stranger: [
+        'Hello 👋 Good to meet you. I look after the tutoring jobs here — ask me anything, or take a look at what is open.',
+        'Hi there 👋 Welcome. I can tell you how the work, the pay and the hiring go, and show you what is open right now.',
+        'Hello 👋 Glad you wrote. Ask me anything about the jobs or the pay and I will tell you straight.',
+      ],
+      known: [
+        'Hello again 👋 Good to hear from you. What can I help with?',
+        'Hi 👋 Nice to see you back. Ask away.',
+        'Hello 👋 Welcome back. What is on your mind?',
+      ],
+      teaching: [
+        'Hello 👋 I hope the lessons are going well. What can I help with?',
+        'Hi 👋 Good to hear from you — I hope the teaching is going smoothly. What do you need?',
+        'Hello 👋 I hope your students are keeping you busy. What can I do?',
+      ],
+    },
+
+    /** Asked after the bot's health. No knowledge entry will ever cover it. */
+    howAreYou: [
+      'I am well, thank you for asking — always here and never tired. What can I help with?',
+      'Doing fine, thanks. More to the point: what can I help you with?',
+      'All good on my side. What do you need?',
+    ],
+
+    thanks: [
+      'Any time.',
+      'You are very welcome.',
+      'Happy to help — ask me again whenever you need to.',
+      'Glad that was useful.',
+    ],
+
+    /** "Ok", "got it". A long reply to a short acknowledgement is its own kind of robot. */
+    affirm: ['Good.', 'Got it.', 'Noted.', 'Right you are.'],
+
+    apology: [
+      'No need to apologise at all.',
+      'Nothing to be sorry for — take your time.',
+      'No trouble whatsoever.',
+    ],
+
+    /**
+     * "I will get back to you." Honest about the one thing that does move on
+     * without them: a job can be filled while they think about it.
+     */
+    later: [
+      'Of course — take your time. I am here whenever you come back. Jobs do get taken, though, so if one interests you it is worth applying before you decide.',
+      'No rush at all. I will be here. Only thing worth saying: an open job can be filled in the meantime, so apply first and think after if you are unsure.',
+      'Understood — come back whenever suits you. Nothing on your side expires, though a job that is open today may not be next week.',
+    ],
+
+    farewell: [
+      'Goodbye — and good luck out there.',
+      'Take care. Come back any time.',
+      'See you. I am here whenever you need me.',
+    ],
+
+    praise: [
+      'That is kind of you — thank you.',
+      'Thank you, that is good to hear.',
+      'Much appreciated. Ask me anything else whenever.',
+    ],
+
+    /**
+     * Somebody typing their qualifications into the chat. It counts — but only
+     * where the ranker can read it, which is the profile and not this message.
+     */
+    introduces: [
+      'Thank you for telling me — and it does count. The catch is that I cannot read it from a message: what gets weighed when a job comes up is what is on your profile.',
+      'Good to know. Put it on your profile rather than here, though — the chat is just between us, and the profile is the part that is actually read when a family is choosing.',
+      'That is worth having on record. It only counts once it is on your profile, though, because that is what gets looked at when a job matches you.',
+    ],
+
+    /**
+     * Somebody who has had enough. Says plainly that there is nobody behind
+     * the bot — which is true, and is kinder than a hand-off that never comes.
+     */
+    frustrated: [
+      'I hear you, and I am sorry that missed. I am a bot, so I only know what has been written down here — there is nobody behind me to pass you to. Say it once more in different words and I will try again, or take one of the topics below.',
+      'Fair enough — that clearly was not what you wanted. I will not pretend there is a person here to hand you over to. Let me try again: put it differently, or pick a topic below.',
+      'Sorry. That was not useful, and I would rather say so than keep going. I only know what is written down here. Try me in other words, or take one of these.',
+    ],
+  },
+
+  /**
+   * Typed something that is not a question, not a courtesy and not a step.
+   * This used to be the bare menu — "What would you like to do?" — which reads
+   * as the bot ignoring what was said and handing over a list instead.
+   */
+  notSure: [
+    'I am not quite sure what you are after there. Give me a few more words and I will try, or take one of these.',
+    'That one I did not follow. Say a little more and I will have another go — or tap something below.',
+    'I did not quite catch that. Tell me a bit more, or pick one of these.',
+  ],
 
   applyingFor: 'This job:',
   applyNext: 'Tap below to continue. The whole registration is buttons.',
