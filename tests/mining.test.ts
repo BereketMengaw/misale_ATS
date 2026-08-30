@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { isWorthReading, mine } from '@/lib/mining/questions'
+import { isCourtesy, isWorthReading, mine, picksFromAList, wantsToApply } from '@/lib/mining/questions'
 
 describe('what counts as a question worth reading', () => {
   it('keeps a real question', () => {
@@ -10,6 +10,50 @@ describe('what counts as a question worth reading', () => {
     for (const junk of ['hi', 'ok', '/start', '/start job_2_1', '0911234567', '  ']) {
       expect(isWorthReading(junk), junk).toBe(false)
     }
+  })
+})
+
+// Measured against a real export: courtesies and "I want to apply" were most
+// of everything anyone sent, and they buried every genuine question.
+describe('setting aside what is not a question', () => {
+  it('drops courtesies however they stack', () => {
+    for (const t of ['Okay Thank you', 'Ok Thanks 🙏', 'Eshi Thank you🙏', 'ok', 'Yes I can',
+                     'Good morning', 'selam nw', 'Of course', "It's okay", 'Hi there']) {
+      expect(isCourtesy(t), t).toBe(true)
+    }
+  })
+
+  it('keeps a real question that opens politely', () => {
+    for (const t of ['Is this still available', 'So what is next', 'What grade is it']) {
+      expect(isCourtesy(t), t).toBe(false)
+    }
+  })
+
+  it('recognises someone saying they want the job', () => {
+    for (const t of ['i want to apply', 'I want to apply for this job', 'I wanna apply',
+                     "I'm interested", 'Can i apply', 'Applying for this', 'I need this job']) {
+      expect(wantsToApply(t), t).toBe(true)
+    }
+  })
+
+  it('recognises someone picking from a list', () => {
+    for (const t of ['The first one', 'the 2nd one.', 'This one', 'I agree with the first one',
+                     'I agree with the first commissioning system.']) {
+      expect(picksFromAList(t), t).toBe(true)
+    }
+  })
+
+  it('counts each of those separately rather than as a missing answer', () => {
+    const report = mine([
+      { text: 'i want to apply for this job', from: 'abel' },
+      { text: 'The first one', from: 'hanna' },
+      { text: 'Okay thank you', from: 'sara' },
+      { text: 'do you sponsor a work visa', from: 'dawit' },
+    ])
+    expect(report.wantsToApply).toBe(1)
+    expect(report.picksFromAList).toBe(1)
+    expect(report.courtesies).toBe(1)
+    expect(report.uncovered).toHaveLength(1)
   })
 })
 
