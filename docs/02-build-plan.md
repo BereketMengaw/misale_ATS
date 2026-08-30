@@ -46,3 +46,10 @@ of entries still to write.
 
 Everything else — the wizard, ranking, the pipeline, timesheets, invoices, payment matching,
 payouts — is ordinary code.
+
+## A thing that is deliberately not here
+
+Tutors were once offered a choice of two commissioning systems. Only one
+survives, and the other is recorded in `docs/08-retired-commission-option.md`
+so that an old conversation mentioning "the second option" does not read as a
+missing feature.
