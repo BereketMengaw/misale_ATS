@@ -6,6 +6,7 @@ import { buildMonthlyInvoice, type BillablePlacement } from '@/lib/money/invoice
 import { prepaymentTerms, PREPAYMENT_WINDOW_DAYS } from '@/lib/money/prepayment'
 import { generateReference } from '@/lib/money/reference'
 import { formatEtb } from '@/lib/money/commission'
+import { formatDateEn } from '@/lib/messaging/dates'
 import { paymentDetails, hasSomewhereToPay } from '@/lib/settings/payment-details'
 import {
   prepaymentDue, prepaymentOverdue, prepaymentReceived, prepaymentWaived,
@@ -154,7 +155,7 @@ export async function notifyPrepayment(prepaymentId: number, chase = false): Pro
   const notice = {
     amountCents: Number(pre.amount_cents),
     reference: pre.reference,
-    dueLabel: pre.due_on,
+    dueLabel: formatDateEn(new Date(`${pre.due_on}T00:00:00Z`)),
     details,
   }
 

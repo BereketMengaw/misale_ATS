@@ -20,3 +20,20 @@ export function formatDateAm(date: Date): string {
 export function formatMonthAm(year: number, month1to12: number): string {
   return `${MONTHS_AM[month1to12 - 1]} ${year}`
 }
+
+const MONTHS_EN = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+]
+
+/**
+ * "15 September" — for a tutor, on Telegram, where length is free.
+ *
+ * The pre-payment message used to print the raw column, "Due by 2026-09-15",
+ * in the middle of otherwise plain English. A date somebody has to decode is
+ * a date they misread.
+ */
+export function formatDateEn(date: Date): string {
+  if (Number.isNaN(date.getTime())) return ''
+  return `${date.getUTCDate()} ${MONTHS_EN[date.getUTCMonth()]}`
+}

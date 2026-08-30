@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { ActionForm, Badge, Card, CardHead, ErrorNote, LinkButton, PageHeader, PageShell, Row, Rows } from '@/components/ui'
 import { markSent, markQuitNoticeHandled } from './actions'
 import { hire, presentTop } from './jobs/actions'
-import { queueMessage } from './money/actions'
+import { askPrepayment, queueMessage } from './money/actions'
 
 export const dynamic = 'force-dynamic'
 
@@ -188,6 +188,17 @@ function DecisionAction({ decision }: { decision: Decision }) {
           <input type="hidden" name="chase" value={decision.late ? '1' : '0'} />
           <Button variant="secondary" size="sm" pendingLabel="Queueing…">
             {decision.late ? 'Queue chase' : 'Queue invoice'}
+          </Button>
+        </form>
+      )
+    case 'prepay':
+      // Sent over Telegram, not queued as an SMS: the tutor is on the bot.
+      return (
+        <form action={askPrepayment}>
+          <input type="hidden" name="prepaymentId" value={decision.prepaymentId} />
+          <input type="hidden" name="chase" value={decision.late ? '1' : '0'} />
+          <Button variant="secondary" size="sm" pendingLabel="Sending…">
+            {decision.late ? 'Chase it' : 'Ask for it'}
           </Button>
         </form>
       )

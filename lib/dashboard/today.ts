@@ -31,6 +31,7 @@ export type Decision =
   | { kind: 'blocked'; key: string; title: string; detail: string; jobId: number }
   | { kind: 'publish'; key: string; title: string; detail: string; jobId: number }
   | { kind: 'chase'; key: string; title: string; detail: string; invoiceId: number; late: boolean }
+  | { kind: 'prepay'; key: string; title: string; detail: string; prepaymentId: number; late: boolean }
   | { kind: 'quit'; key: string; title: string; detail: string; noticeId: number; said: string; phone: string | null }
 
 export type Today = {
@@ -60,6 +61,7 @@ export const loadToday = cache(async function loadToday(): Promise<Today> {
       { data: openJobs },
       { data: approvedDrafts },
       { data: unpaid },
+      { data: owing },
       { count: poolSize },
       { count: placements },
     ] = await Promise.all([
@@ -81,6 +83,13 @@ export const loadToday = cache(async function loadToday(): Promise<Today> {
         .from('invoices')
         .select('id, reference, due_on, paid_at, status, gross_cents, clients(full_name)')
         .in('status', ['draft', 'sent']),
+      // The tutor's side of the money. Without this the operator only finds a
+      // late pre-payment by remembering to open the Money page — the whole
+      // point of Today is that he does not have to remember anything.
+      db
+        .from('prepayments')
+        .select('id, reference, amount_cents, due_on, notified_at, paid_at, candidates(full_name)')
+        .eq('status', 'due'),
       db.from('candidates').select('id', { count: 'exact', head: true }).eq('status', 'active'),
       db.from('placements').select('id', { count: 'exact', head: true }).in('status', ['scheduled', 'active']),
     ])
@@ -213,6 +222,36 @@ export const loadToday = cache(async function loadToday(): Promise<Today> {
     }
 
     const invoiceById = new Map((unpaid ?? []).map((i) => [Number(i.id), i]))
+
+    // 6. The tutor's pre-payment: not asked for yet, or asked and now late.
+    //    Never both, and never a row for one that is simply not due yet.
+    for (const pre of owing ?? []) {
+      const due = new Date(`${pre.due_on}T00:00:00Z`)
+      const notified = Boolean(pre.notified_at)
+      const late = isOverdue(due, pre.paid_at ? new Date(pre.paid_at) : null, now)
+
+      // Asked for, still inside its two weeks. Nothing to do but wait.
+      if (notified && !late) continue
+
+      const tutor = pre.candidates as unknown as { full_name: string | null } | null
+      const lateBy = daysBetween(due, now)
+      const money = `${formatEtb(Number(pre.amount_cents))} ETB`
+
+      decisions.push({
+        kind: 'prepay',
+        key: `prepay-${pre.id}`,
+        // Nobody is late for a payment they were never asked for, and the
+        // operator should see which of the two this is at a glance.
+        title: notified
+          ? `${pre.reference} pre-payment is late`
+          : `${tutor?.full_name ?? 'A tutor'} has not been asked for their pre-payment`,
+        detail: notified
+          ? `${tutor?.full_name ?? 'Tutor'} · ${money} · ${lateBy} day${lateBy === 1 ? '' : 's'} late`
+          : `${money} · due ${pre.due_on}`,
+        prepaymentId: pre.id,
+        late: notified && late,
+      })
+    }
 
     const sendables: Sendable[] = (outbox ?? []).map((m) => {
       const inv = m.invoice_id ? invoiceById.get(Number(m.invoice_id)) : undefined

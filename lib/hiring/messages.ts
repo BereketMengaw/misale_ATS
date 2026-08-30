@@ -96,12 +96,18 @@ export function hired(
 
   const upfront = prepaymentCents(s.grossCents, commissionPercent)
   if (upfront > 0) {
+    // The figure only. The date and the account come in the message right
+    // behind this one, from the row that actually holds them — this used to
+    // say "within two weeks of meeting the family" while the next message said
+    // "now due" with a fixed date, which is two different deadlines in ten
+    // seconds.
     lines.push(
       '',
-      `Your one-off pre-payment of ${formatEtb(upfront)} ETB is due within two weeks of meeting the family, and before your first salary.`,
+      `Your one-off pre-payment of ${formatEtb(upfront)} ETB falls due now. The account and the date are in the next message.`,
     )
   }
 
+  lines.push('')
   if (release === 'on_hire' && parentPhone) {
     lines.push(`You can reach them on ${parentPhone}.`)
   } else if (release === 'after_first_payment') {

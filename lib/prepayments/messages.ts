@@ -75,9 +75,12 @@ export function prepaymentWaived(amountCents: number): string {
  * same reasoning that already lets a tutor type their phone number.
  */
 export const askPayoutProvider = [
-  'Before your first payment, I need to know where to send it.',
+  // Says which way the money is going, because this arrives seconds after a
+  // message asking them to send some. Two opposite directions back to back,
+  // unlabelled, reads as being asked for money twice.
+  'One more thing, and this one is money coming to you.',
   '',
-  'Which do you want to be paid into?',
+  'When the family pays, your share is sent on to you. Where should it go?',
 ].join('\n')
 
 export const askPayoutBank = [

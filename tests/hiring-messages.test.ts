@@ -43,12 +43,20 @@ describe('hiring messages', () => {
     expect(offer).not.toContain('nothing further to pay')
   })
 
-  // The hire is not the deadline: the pre-payment is due within two weeks of
-  // meeting the family, and before the first salary.
-  it('repeats the pre-payment at the hire, with the deadline it really has', () => {
+  /**
+   * The hire message names the figure and nothing else about timing.
+   *
+   * It used to state a deadline of its own — "within two weeks of meeting the
+   * family" — while the message sent seconds later said "now due" against a
+   * fixed date computed from the hire. Two deadlines in ten seconds, and the
+   * one the ledger will actually chase on was the second. One place owns the
+   * date now: the prepayments row, and the message that reads it.
+   */
+  it('names the pre-payment at the hire and leaves the date to the row', () => {
     const message = hired(job, 'Selam', 20, 'after_first_payment', null)
-    expect(message).toContain('900 ETB is due within two weeks of meeting the family')
-    expect(message).toContain('before your first salary')
+    expect(message).toContain('900 ETB')
+    expect(message).toContain('next message')
+    expect(message).not.toContain('two weeks')
   })
 
   it('says nothing about a pre-payment when the agency takes no fee', () => {
