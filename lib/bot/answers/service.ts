@@ -183,13 +183,18 @@ export async function answerFor(
   rawQuestion: string,
 ): Promise<AnsweredQuestion> {
   const question = rawQuestion.trim().slice(0, MAX_QUESTION_LENGTH)
-  const questionNorm = normalize(question)
 
   const matched = retrieve(question, 3).map((m) => m.entry)
   const related = relatedTo(matched)
   const hasModel = activeProviderName() !== 'template'
   const [thread, standing] = await Promise.all([recentThread(telegramId), standingOf(telegramId)])
   const previous = thread.length ? thread[thread.length - 1] : null
+
+  // The cache key carries who was asking. The same words now get a different
+  // answer depending on where someone stands, so keying on the question alone
+  // would serve a stranger the reply written for somebody already teaching.
+  // Nothing but the cache reads question_norm, so it can hold both.
+  const questionNorm = `${normalize(question)}|${standing?.key ?? 'unknown'}`
 
   // "Are you sure?" retrieves nothing, because it is about whatever came
   // before it. Carry the last answer's facts rather than handing the model
@@ -243,7 +248,7 @@ export async function answerFor(
     facts: facts.map(asFact),
     fallback: matched[0] ? asFact(matched[0]) : null,
     history: thread.map((t) => ({ question: t.question, answer: t.answer })),
-    standing,
+    standing: standing?.text ?? null,
   })
 
   if (answer.covered && answer.text) {

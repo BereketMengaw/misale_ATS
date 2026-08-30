@@ -11,7 +11,18 @@
  */
 import { supabaseAdmin } from '@/lib/supabase/admin'
 
-export async function standingOf(telegramId: number): Promise<string | null> {
+export type Standing = {
+  /** The sentence the model reads. */
+  text: string
+  /**
+   * A coarse bucket for the answer cache. Answers now differ by who is asking,
+   * so a cached reply keyed on the question alone would hand a stranger the
+   * answer written for someone already teaching.
+   */
+  key: string
+}
+
+export async function standingOf(telegramId: number): Promise<Standing | null> {
   const db = supabaseAdmin()
 
   try {
@@ -21,7 +32,7 @@ export async function standingOf(telegramId: number): Promise<string | null> {
       .eq('telegram_id', telegramId)
       .maybeSingle()
 
-    if (!candidate) return 'They have not registered yet.'
+    if (!candidate) return { text: 'They have not registered yet.', key: 'new' }
 
     const facts: string[] = ['They are registered.']
     if (candidate.area) facts.push(`They live in ${candidate.area}.`)
@@ -40,7 +51,7 @@ export async function standingOf(telegramId: number): Promise<string | null> {
       facts.push(
         `They have been hired${job?.subject ? ` for ${job.subject}, ${job.grade}` : ''} and are teaching now.`,
       )
-      return facts.join(' ')
+      return { text: facts.join(' '), key: 'placed' }
     }
 
     const { data: applications } = await db
@@ -52,7 +63,7 @@ export async function standingOf(telegramId: number): Promise<string | null> {
 
     if (!applications?.length) {
       facts.push('They have not applied to any job yet.')
-      return facts.join(' ')
+      return { text: facts.join(' '), key: 'registered' }
     }
 
     const latest = applications[0]
@@ -76,7 +87,7 @@ export async function standingOf(telegramId: number): Promise<string | null> {
     }
     if (latest.status && said[latest.status]) facts.push(said[latest.status])
 
-    return facts.join(' ')
+    return { text: facts.join(' '), key: `applied:${latest.status ?? 'applied'}` }
   } catch (err) {
     // Answering without knowing who they are beats not answering.
     console.error('could not read standing', err)
