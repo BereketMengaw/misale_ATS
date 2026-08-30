@@ -201,7 +201,7 @@ export const KNOWLEDGE: KnowledgeEntry[] = [
       // The sub-cities a tutor registers in — kept in step with DEFAULT_AREAS
       // by tests/answers.test.ts — plus the names people actually type.
       'bole', 'yeka', 'kirkos', 'arada', 'lideta', 'addis ketema', 'gulele',
-      'kolfe keranio', 'nifas silk lafto', 'akaky kaliti',
+      'kolfe keranio', 'nifas silk lafto', 'akaky kaliti', 'lemi kura', 'lemikura',
       'piassa', 'megenagna', 'cmc', 'sarbet', 'gerji', 'ayat', 'summit',
       'lebu', 'jemo', 'kazanchis', 'saris', 'mexico',
     ],
