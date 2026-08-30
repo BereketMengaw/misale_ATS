@@ -1,5 +1,7 @@
 'use client'
 
+import { ALL_SUBJECTS, DEFAULT_SUBJECTS } from '@/lib/candidates/options'
+
 import { useActionState } from 'react'
 import { createJob, type FormState } from '../actions'
 import { Button } from '@/components/ui/button'
@@ -63,10 +65,12 @@ export function JobForm({
   return (
     <form action={action} className="space-y-4">
       {initial && <input type="hidden" name="id" value={initial.id} />}
-      <Field label="Subject" error={e.subject}>
-        <input name="subject" defaultValue={initial?.subject} className={input} placeholder="Mathematics" required />
-      </Field>
-
+      {/*
+        Grade leads, because that is what families hire on: a tutor takes
+        grade 5 and teaches everything in it. Subject follows, and defaults to
+        every subject — a post for one named subject is the exception here,
+        not the rule, and the form used to assume the opposite.
+      */}
       <div className="grid grid-cols-2 gap-4">
         <Field label="Grade" error={e.grade}>
           <input name="grade" defaultValue={initial?.grade} className={input} placeholder="Grade 9" required />
@@ -75,6 +79,22 @@ export function JobForm({
           <input name="area" defaultValue={initial?.area} className={input} placeholder="Bole, Addis Ababa" required />
         </Field>
       </div>
+
+      <Field label="Subject" error={e.subject}>
+        <select name="subject" defaultValue={initial?.subject ?? ALL_SUBJECTS} className={input} required>
+          <option value={ALL_SUBJECTS}>{ALL_SUBJECTS}</option>
+          {DEFAULT_SUBJECTS.map((s) => (
+            <option key={s} value={s}>{s}</option>
+          ))}
+          {initial?.subject && ![ALL_SUBJECTS, ...DEFAULT_SUBJECTS].includes(initial.subject) && (
+            <option value={initial.subject}>{initial.subject}</option>
+          )}
+        </select>
+        <p className="mt-1 text-xs text-neutral-500">
+          Leave as “{ALL_SUBJECTS}” unless the family wants one subject only. Only a tutor
+          who teaches everything is matched to an all-subjects post.
+        </p>
+      </Field>
 
       <div className="grid grid-cols-2 gap-4">
         <Field label="Days per week" error={e.daysPerWeek}>

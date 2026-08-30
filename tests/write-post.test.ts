@@ -83,4 +83,24 @@ describe('template post writer', () => {
   it('ignores a start date it cannot read', () => {
     expect(writePostTemplate({ ...base, startsOn: 'not-a-date' }).body).not.toContain('Starts:')
   })
+
+  // Most posts are for a grade, not a subject: "Tutor needed — All subjects"
+  // buries the thing a reader is scanning the channel for.
+  describe('a post for every subject', () => {
+    const everySubject = { ...base, subject: 'All subjects' }
+
+    it('leads with the grade', () => {
+      expect(writePostTemplate(everySubject).body).toContain('Tutor needed — Grade 9, all subjects')
+    })
+
+    it('does not then say the grade twice', () => {
+      expect(writePostTemplate(everySubject).body).not.toContain('Grade: Grade 9')
+    })
+
+    it('still leads with the subject when there is one', () => {
+      const body = writePostTemplate({ ...base, subject: 'Mathematics' }).body
+      expect(body).toContain('Tutor needed — Mathematics')
+      expect(body).toContain('Grade: Grade 9')
+    })
+  })
 })

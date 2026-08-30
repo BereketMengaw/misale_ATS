@@ -1,5 +1,6 @@
 import type { AiProvider, Answer, JobFields, PostDraft, Question } from '../types'
 import { formatEtb, split, toCents } from '@/lib/money/commission'
+import { ALL_SUBJECTS } from '@/lib/candidates/options'
 
 /**
  * The no-model provider, and the fallback for every other one.
@@ -59,10 +60,17 @@ export function writePostTemplate(fields: JobFields): PostDraft {
   const hours = fields.hoursPerSession
   const notes = fields.notes?.trim() || null
 
+  // Most posts are for a grade, not a subject. "Tutor needed — All subjects"
+  // buries the one thing a reader is scanning for, so the grade leads and the
+  // Grade line goes, rather than saying it twice.
+  const everySubject = fields.subject.trim().toLowerCase() === ALL_SUBJECTS.toLowerCase()
+
   const body = [
-    `📚 Tutor needed — ${fields.subject}`,
+    everySubject
+      ? `📚 Tutor needed — ${fields.grade}, all subjects`
+      : `📚 Tutor needed — ${fields.subject}`,
     '',
-    line('Grade:', fields.grade),
+    everySubject ? null : line('Grade:', fields.grade),
     line('Area:', fields.area),
     line('Days per week:', String(fields.daysPerWeek)),
     hours ? line('Per session:', `${hours} hour${hours === 1 ? '' : 's'}`) : null,
