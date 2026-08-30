@@ -1,5 +1,5 @@
 import { supabaseAdmin } from '@/lib/supabase/admin'
-import { isValidSchedule, type Schedule } from './schedule'
+import { deriveSchedule, isValidSchedule, type Schedule } from './schedule'
 
 /**
  * The application, with the job it is for.
@@ -18,12 +18,14 @@ type HiredApplication = {
     rate_period: string
     commission_percent: number
     client_id: number | null
+    days_per_week: number
+    hours_per_session: number | null
   } | null
 }
 
 const HIRED_APPLICATION_SELECT =
   'id, job_post_id, candidate_id, commission_percent, ' +
-  'job_posts!applications_job_post_id_fkey(rate_amount, rate_period, commission_percent, client_id)'
+  'job_posts!applications_job_post_id_fkey(rate_amount, rate_period, commission_percent, client_id, days_per_week, hours_per_session)'
 
 /** Created at hire, with the figures frozen as they were agreed. */
 export async function createPlacementFromHire(applicationId: number): Promise<number | null> {
@@ -42,6 +44,21 @@ export async function createPlacementFromHire(applicationId: number): Promise<nu
 
   const job = app.job_posts
 
+  // A first schedule from what both sides already said: the job's days a week
+  // and session length, the tutor's own availability. A placement with none
+  // cannot be billed or priced, which used to mean the operator had to set one
+  // by hand before anything about the money worked. Provisional — the
+  // placement page overwrites it with whatever they actually agree.
+  const { data: tutor } = await db
+    .from('candidates').select('availability').eq('id', app.candidate_id).maybeSingle()
+
+  const derived = deriveSchedule({
+    daysPerWeek: job.days_per_week,
+    hoursPerSession: job.hours_per_session === null ? null : Number(job.hours_per_session),
+    ratePeriod: job.rate_period as 'per_hour' | 'per_session' | 'per_month',
+    availability: (tutor?.availability ?? null) as Record<string, string[]> | null,
+  })
+
   const { data, error } = await db
     .from('placements')
     .upsert(
@@ -53,6 +70,7 @@ export async function createPlacementFromHire(applicationId: number): Promise<nu
         rate_period: job.rate_period,
         // What the tutor accepted, not what the job says today.
         commission_percent: app.commission_percent ?? job.commission_percent,
+        ...(derived.schedule ? { schedule: derived.schedule } : {}),
         status: 'active',
       },
       { onConflict: 'job_post_id,candidate_id' },

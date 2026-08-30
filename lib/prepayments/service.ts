@@ -11,7 +11,7 @@ import { paymentDetails, hasSomewhereToPay } from '@/lib/settings/payment-detail
 import {
   prepaymentDue, prepaymentOverdue, prepaymentReceived, prepaymentWaived,
 } from './messages'
-import type { Schedule } from '@/lib/placements/schedule'
+import { deriveSchedule, type Schedule } from '@/lib/placements/schedule'
 
 async function tell(chatId: number | null, text: string): Promise<boolean> {
   if (!chatId) return false
@@ -37,6 +37,39 @@ async function freshReference(): Promise<string | null> {
   return null
 }
 
+/**
+ * Work a schedule out for a placement that has none, and save it.
+ *
+ * Returns null when it genuinely cannot be known — an hourly job that never
+ * recorded how long a session runs. Hours there are multiplied by the rate to
+ * make the bill, so guessing would invent what a family owes.
+ */
+async function backfillSchedule(
+  placementId: number,
+  jobPostId: number,
+  candidateId: number,
+  ratePeriod: string,
+): Promise<Schedule | null> {
+  const db = supabaseAdmin()
+
+  const [{ data: job }, { data: tutor }] = await Promise.all([
+    db.from('job_posts').select('days_per_week, hours_per_session').eq('id', jobPostId).maybeSingle(),
+    db.from('candidates').select('availability').eq('id', candidateId).maybeSingle(),
+  ])
+  if (!job) return null
+
+  const derived = deriveSchedule({
+    daysPerWeek: Number(job.days_per_week),
+    hoursPerSession: job.hours_per_session === null ? null : Number(job.hours_per_session),
+    ratePeriod: ratePeriod as 'per_hour' | 'per_session' | 'per_month',
+    availability: (tutor?.availability ?? null) as Record<string, string[]> | null,
+  })
+  if (!derived.schedule) return null
+
+  await db.from('placements').update({ schedule: derived.schedule }).eq('id', placementId)
+  return derived.schedule
+}
+
 export type CreateResult =
   | { ok: true; prepaymentId: number; created: boolean }
   | { ok: false; reason: string }
@@ -54,10 +87,18 @@ export async function createPrepaymentForPlacement(placementId: number): Promise
 
   const { data: p } = await db
     .from('placements')
-    .select('id, candidate_id, rate_amount, rate_period, commission_percent, schedule, starts_on, created_at')
+    .select('id, candidate_id, job_post_id, rate_amount, rate_period, commission_percent, schedule, starts_on, created_at')
     .eq('id', placementId)
     .maybeSingle()
   if (!p) return { ok: false, reason: 'no such placement' }
+
+  // A placement made before schedules were worked out at hire has none, and
+  // without one an hourly placement cannot be priced at all. Fill it from what
+  // the job and the tutor already said rather than refusing to charge.
+  let schedule = p.schedule as Schedule | null
+  if (!schedule) {
+    schedule = await backfillSchedule(p.id, p.job_post_id, p.candidate_id, p.rate_period)
+  }
 
   const { data: existing } = await db
     .from('prepayments').select('id').eq('placement_id', placementId).maybeSingle()
@@ -74,7 +115,7 @@ export async function createPrepaymentForPlacement(placementId: number): Promise
     rateAmountEtb: Number(p.rate_amount),
     ratePeriod: p.rate_period,
     commissionPercent: Number(p.commission_percent),
-    schedule: p.schedule as Schedule | null,
+    schedule,
   }
 
   // One billing period, priced exactly as the family will be billed for it.
@@ -94,7 +135,12 @@ export async function createPrepaymentForPlacement(placementId: number): Promise
   // An hourly placement with no schedule yet prices at nothing. Raising a
   // zero-birr debt would be worse than raising none: it would show as settled.
   if (terms.amountCents <= 0) {
-    return { ok: false, reason: 'nothing to charge yet — set the schedule first' }
+    return {
+      ok: false,
+      reason: schedule
+        ? 'the agreed schedule bills nothing this month'
+        : 'priced by the hour, and the job never recorded how long a session runs — set the schedule on the placement',
+    }
   }
 
   const reference = await freshReference()
