@@ -51,7 +51,7 @@ export function commissionOffer(job: JobSummary, commissionPercent: number): str
   if (upfront > 0) {
     lines.push(
       '',
-      `There is also a one-off pre-payment of ${formatEtb(upfront)} ETB, due to us before your first lesson.`,
+      `There is also a one-off pre-payment of ${formatEtb(upfront)} ETB, due within two weeks of meeting the family and before your first salary.`,
       'That is separate from the fee above, which still comes out of every payment — including your first.',
     )
   }
@@ -98,7 +98,7 @@ export function hired(
   if (upfront > 0) {
     lines.push(
       '',
-      `Your one-off pre-payment of ${formatEtb(upfront)} ETB is now due, before the first lesson.`,
+      `Your one-off pre-payment of ${formatEtb(upfront)} ETB is due within two weeks of meeting the family, and before your first salary.`,
     )
   }
 

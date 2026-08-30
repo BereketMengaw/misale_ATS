@@ -73,7 +73,8 @@ export function formatEtb(cents: number): string {
 }
 
 /**
- * The one-off pre-payment a tutor owes before their first lesson: the agency's
+ * The one-off pre-payment a tutor owes within two weeks of meeting the family
+ * and before their first salary: the agency's
  * share of a single billing period, paid up front.
  *
  * It is NOT a deposit against the monthly fee. The 20% still comes out of every

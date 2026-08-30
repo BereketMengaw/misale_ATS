@@ -56,7 +56,8 @@ Two separate charges, and they are not the same money:
 
 - **The monthly fee** — 20% of the parent's bill, deducted at source. The tutor never hands this
   over; they are simply paid the remainder.
-- **The pre-payment** — a one-off charge to the tutor before their first lesson, equal to the fee
+- **The pre-payment** — a one-off charge to the tutor, due within two weeks of meeting the family
+  and before their first salary, equal to the fee
   on one billing period. It is **on top of** the monthly deduction, not a deposit against it, so
   the first period costs a tutor twice the fee.
 

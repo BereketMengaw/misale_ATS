@@ -58,9 +58,10 @@ export const KNOWLEDGE: KnowledgeEntry[] = [
       'prepayment', 'pre payment', 'deposit', 'upfront', 'advance',
       'pay before', 'pay you before', 'before i start', 'pay first',
       'why do i pay', 'registration fee', 'joining fee',
+      'when is it due', 'when do i pay', 'deadline', 'two weeks',
     ],
     answer:
-      'A one-off amount due to us before your first lesson, equal to one period of our fee. It is on top of the fee taken from each payment, not instead of it. The exact figure is always in the offer, before you accept.',
+      'A one-off amount equal to one period of our fee. It falls due once you have met the family — within two weeks of that, and before your first salary. It is on top of the fee taken from each payment, not instead of it, and the exact figure is always in the offer before you accept.',
   },
   {
     id: 'hear-back',
@@ -302,7 +303,7 @@ export const KNOWLEDGE: KnowledgeEntry[] = [
       'start teaching', 'first lesson',
     ],
     answer:
-      'You get a message here with the job, what you are paid, and the family. Your one-off pre-payment falls due before the first lesson. After that you agree the times with the family directly and teach — there is nothing to send back to us.',
+      'You get a message here with the job, what you are paid, and the family. You meet them, agree the times directly, and teach. Your one-off pre-payment is due within two weeks of meeting them and before your first salary — after that there is nothing to send back to us.',
   },
   {
     id: 'family-contact',

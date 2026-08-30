@@ -122,7 +122,7 @@ export function offerTerms(rateAmount: number, ratePeriod: string, commissionPer
 
   const sentence =
     upfrontCents > 0
-      ? `They keep ${net} after your ${commissionPercent}% fee, and owe a one-off ${upfront} pre-payment before the first lesson — on top of the fee, not instead of it.`
+      ? `They keep ${net} after your ${commissionPercent}% fee, and owe a one-off ${upfront} pre-payment within two weeks of meeting the family, before their first salary — on top of the fee, not instead of it.`
       : `They keep ${net}. You take no fee on this job.`
 
   return { net, upfront, period, sentence }

@@ -163,7 +163,7 @@ export const copy = {
     'The figure in an offer is yours to keep. Our fee is already taken out of it — the family pays more than you see, and you never send us that part.',
     '',
     '<b>What is the pre-payment?</b>',
-    'A one-off amount due to us before your first lesson, equal to one period of our fee. It is on top of the fee taken from each payment, not instead of it. The exact figure is always in the offer, before you accept.',
+    'A one-off amount equal to one period of our fee, due within two weeks of meeting the family and before your first salary. It is on top of the fee taken from each payment, not instead of it. The exact figure is always in the offer, before you accept.',
     '',
     '<b>When do I hear back?</b>',
     'Only if you are shortlisted, and always here. There is nothing to chase.',

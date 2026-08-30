@@ -37,14 +37,18 @@ describe('hiring messages', () => {
     const offer = commissionOffer(job, 20)
     // 20% of 4,500 — the money they would actually hand over.
     expect(offer).toContain('900 ETB')
-    expect(offer).toContain('before your first lesson')
+    expect(offer).toContain('within two weeks of meeting the family and before your first salary')
     expect(offer).toContain('including your first')
     // The old wording promised the opposite and is now a lie.
     expect(offer).not.toContain('nothing further to pay')
   })
 
-  it('repeats the pre-payment at the hire, when it actually falls due', () => {
-    expect(hired(job, 'Selam', 20, 'after_first_payment', null)).toContain('900 ETB is now due')
+  // The hire is not the deadline: the pre-payment is due within two weeks of
+  // meeting the family, and before the first salary.
+  it('repeats the pre-payment at the hire, with the deadline it really has', () => {
+    const message = hired(job, 'Selam', 20, 'after_first_payment', null)
+    expect(message).toContain('900 ETB is due within two weeks of meeting the family')
+    expect(message).toContain('before your first salary')
   })
 
   it('says nothing about a pre-payment when the agency takes no fee', () => {
