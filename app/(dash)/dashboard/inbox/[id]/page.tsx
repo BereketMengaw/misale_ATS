@@ -63,7 +63,8 @@ export default async function ThreadPage({ params }: { params: Promise<{ id: str
 
       {truncated && (
         <p className="text-xs text-neutral-400">
-          Showing the most recent part of a long conversation. Everything older is still in the log.
+          Showing the most recent part of a long conversation — scroll up for the rest of it.
+          Everything older than that is still in the log.
         </p>
       )}
 
@@ -73,11 +74,25 @@ export default async function ThreadPage({ params }: { params: Promise<{ id: str
             Nothing readable in this thread yet.
           </p>
         ) : (
-          <ol className="space-y-3">
-            {lines.map((line) => (
-              <Line key={`${line.via}-${line.id}`} line={line} />
-            ))}
-          </ol>
+          /*
+           * Opens on the newest message, the way every chat anybody has ever
+           * used does. `flex-col-reverse` is what does it: it makes scrollTop 0
+           * mean the BOTTOM, so the browser lands there on its own — no effect,
+           * no scrolling after paint, and it stays pinned when a sent message
+           * appears. The list inside keeps its natural oldest-first order, so
+           * reading order and copy-paste are unaffected.
+           *
+           * max-h caps without setting a height, so a four-line thread is still
+           * four lines rather than a short conversation stranded at the bottom
+           * of a tall empty box.
+           */
+          <div className="flex max-h-[60vh] flex-col-reverse overflow-y-auto">
+            <ol className="space-y-3">
+              {lines.map((line) => (
+                <Line key={`${line.via}-${line.id}`} line={line} />
+              ))}
+            </ol>
+          </div>
         )}
       </Card>
 
