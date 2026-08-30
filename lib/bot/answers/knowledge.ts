@@ -163,7 +163,7 @@ export const KNOWLEDGE: KnowledgeEntry[] = [
     topic: 'Where would I teach?',
     keywords: [
       'where', 'area', 'location', 'place', 'addis', 'distance', 'far',
-      'travel', 'transport', 'online', 'remote', 'home',
+      'online', 'remote', 'home',
       // The sub-cities a tutor registers in — kept in step with DEFAULT_AREAS
       // by tests/answers.test.ts — plus the names people actually type.
       'bole', 'yeka', 'kirkos', 'arada', 'lideta', 'addis ketema', 'gulele',
@@ -173,6 +173,17 @@ export const KNOWLEDGE: KnowledgeEntry[] = [
     ],
     answer:
       'Lessons are at the family\'s home, and every post names the part of Addis it is in. You are matched towards areas near the one you registered in, so pick the closest when you register.',
+  },
+  {
+    id: 'transport',
+    topic: 'Is transport covered?',
+    keywords: [
+      'transport', 'transport covered', 'cover transport', 'pay for transport',
+      'transport allowance', 'transport cost', 'transport fee', 'taxi', 'bus',
+      'fare', 'travel cost', 'travel money', 'fuel', 'petrol', 'getting there',
+    ],
+    answer:
+      'No — the figure in the post is all of it, with nothing added for travel. That is why how near you live counts for so much when we rank applicants: pick the closest area when you register and the journey stays short.',
   },
   {
     id: 'schedule',
