@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { supabaseAdmin } from '@/lib/supabase/admin'
-import { checkAccount, PAYOUT_PROVIDERS } from '@/lib/candidates/payout-details'
+import { checkAccount, checkBankName, PAYOUT_PROVIDERS } from '@/lib/candidates/payout-details'
 
 export type DestinationState = { error?: string; ok?: string }
 
@@ -44,12 +44,21 @@ export async function saveDestination(
   // transfer to the wrong name bounces. It is not optional.
   if (name.length < 3) return { error: 'Give the name as the bank has it.' }
 
+  // "Another bank" with no bank named is an account number with nowhere to go.
+  let bank: string | null = null
+  if (provider === 'other') {
+    const checkedBank = checkBankName(String(formData.get('bank') ?? ''))
+    if (!checkedBank.ok) return { error: 'Name the bank — "Another bank" on its own is not somewhere to send money.' }
+    bank = checkedBank.bank
+  }
+
   await supabaseAdmin()
     .from('candidates')
     .update({
       payout_provider: provider,
       payout_account: checked.account,
       payout_name: name,
+      payout_bank: bank,
       payout_set_at: new Date().toISOString(),
     })
     .eq('id', candidateId)

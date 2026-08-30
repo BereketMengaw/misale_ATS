@@ -2,7 +2,7 @@
 
 import { useActionState } from 'react'
 import { saveDestination } from './actions'
-import { PAYOUT_PROVIDERS } from '@/lib/candidates/payout-details'
+import { COMMON_BANKS, PAYOUT_PROVIDERS } from '@/lib/candidates/payout-details'
 import { Button } from '@/components/ui/button'
 import { Field, TextInput } from '@/components/ui/field'
 import { inputClass } from '@/components/ui/styles'
@@ -17,11 +17,13 @@ export function DestinationForm({
   provider,
   account,
   name,
+  bank,
 }: {
   candidateId: number
   provider: string | null
   account: string | null
   name: string | null
+  bank: string | null
 }) {
   const [state, action] = useActionState(saveDestination, {})
 
@@ -43,6 +45,18 @@ export function DestinationForm({
               </option>
             ))}
           </select>
+        </Field>
+
+        {/* Only meaningful for "Another bank", but always shown: a select that
+            reveals a field on change needs client state for one input, and an
+            empty box beside CBE is cheaper than that. The action ignores it. */}
+        <Field label="Bank name — only if you picked Another bank">
+          <TextInput name="bank" defaultValue={bank ?? ''} placeholder="Awash Bank" list="known-banks" />
+          <datalist id="known-banks">
+            {COMMON_BANKS.map((b) => (
+              <option key={b} value={b} />
+            ))}
+          </datalist>
         </Field>
 
         <div className="grid gap-3 sm:grid-cols-2">

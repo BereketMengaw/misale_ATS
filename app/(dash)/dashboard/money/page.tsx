@@ -35,12 +35,12 @@ export default async function MoneyPage({ searchParams }: { searchParams: Promis
         .limit(100),
       db
         .from('payouts')
-        .select('*, candidates(full_name, phone, payout_provider, payout_account, payout_name), invoices(reference, period)')
+        .select('*, candidates(full_name, phone, payout_provider, payout_account, payout_name, payout_bank), invoices(reference, period)')
         .order('status')
         .order('due_on'),
       db
         .from('prepayments')
-        .select('*, candidates(full_name, phone, payout_provider, payout_account), placements(job_posts(subject))')
+        .select('*, candidates(full_name, phone, payout_provider, payout_account, payout_bank), placements(job_posts(subject))')
         .order('status')
         .order('due_on'),
       db

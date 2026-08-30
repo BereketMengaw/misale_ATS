@@ -1,5 +1,5 @@
 import { formatEtb } from '@/lib/money/commission'
-import { isPayable, providerLabel, type PayoutProvider } from '@/lib/candidates/payout-details'
+import { destinationLabel, isPayable, type PayoutProvider } from '@/lib/candidates/payout-details'
 import { reconciles, total, type Payout } from '@/lib/money/payout'
 import { Badge, EmptyState, Table, Td, Th, Thead, Tr } from '@/components/ui'
 import { Button } from '@/components/ui/button'
@@ -59,6 +59,7 @@ export function Payouts({ rows }: { rows: PayoutRow[] }) {
               payout_provider: string | null
               payout_account: string | null
               payout_name: string | null
+              payout_bank: string | null
             } | null
             const inv = p.invoices as { reference: string; period: string } | null
 
@@ -69,6 +70,7 @@ export function Payouts({ rows }: { rows: PayoutRow[] }) {
               provider: (tutor?.payout_provider ?? null) as PayoutProvider | null,
               account: tutor?.payout_account ?? null,
               name: tutor?.payout_name ?? null,
+              bank: tutor?.payout_bank ?? null,
             }
             const payable = isPayable(destination)
 
@@ -81,7 +83,7 @@ export function Payouts({ rows }: { rows: PayoutRow[] }) {
                 <Td className="text-xs">
                   {payable ? (
                     <span className="text-neutral-500">
-                      {providerLabel(destination.provider)}{' '}
+                      {destinationLabel(destination.provider, destination.bank)}{' '}
                       {/* In full, and select-all: this is the screen the transfer
                           is made from, and a number you cannot copy is a number
                           you retype by hand into a banking app. */}

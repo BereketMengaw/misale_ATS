@@ -4,7 +4,9 @@ import {
   prepaymentTerms, prepaymentTotals, type CountablePrepayment, type StageInput,
 } from '@/lib/money/prepayment'
 import { prepayment, split, toCents } from '@/lib/money/commission'
-import { checkAccount, isPayable } from '@/lib/candidates/payout-details'
+import {
+  checkAccount, checkBankName, COMMON_BANKS, destinationLabel, isPayable,
+} from '@/lib/candidates/payout-details'
 import { matchPrepayment, type PrepaymentCandidate } from '@/lib/payments/match-prepayment'
 import type { ParsedPayment } from '@/lib/payments/parse'
 
@@ -165,6 +167,43 @@ describe('where a tutor is paid', () => {
     expect(isPayable({ provider: 'cbe', account: '1000123456789', name: 'Abebe' })).toBe(true)
     expect(isPayable({ provider: 'cbe', account: '1000123456789', name: null })).toBe(false)
     expect(isPayable({ provider: null, account: '1000123456789', name: 'Abebe' })).toBe(false)
+  })
+
+  /**
+   * "Another bank" was an option from the start and threw away the only thing
+   * that mattered. An account number at an unnamed bank is not a destination.
+   */
+  it('is not payable at "another bank" until the bank is named', () => {
+    const at = (bank: string | null) =>
+      isPayable({ provider: 'other', account: '1000123456789', name: 'Abebe', bank })
+
+    expect(at('Awash Bank')).toBe(true)
+    expect(at(null)).toBe(false)
+    expect(at('   ')).toBe(false)
+  })
+
+  it('prints the bank a payout is actually going to', () => {
+    expect(destinationLabel('other', 'Awash Bank')).toBe('Awash Bank')
+    expect(destinationLabel('cbe', null)).toBe('CBE')
+    expect(destinationLabel('telebirr', null)).toBe('Telebirr')
+  })
+
+  it('says so rather than printing a blank when the bank was lost', () => {
+    expect(destinationLabel('other', null)).toBe('Bank not named')
+    expect(destinationLabel('other', '  ')).toBe('Bank not named')
+  })
+
+  it('takes a bank that is not on the list, because the list is not the market', () => {
+    expect(checkBankName('  Siinqee   Bank ')).toEqual({ ok: true, bank: 'Siinqee Bank' })
+    expect(checkBankName('')).toMatchObject({ ok: false, reason: 'empty' })
+    expect(checkBankName('X')).toMatchObject({ ok: false, reason: 'too-short' })
+    expect(checkBankName('a'.repeat(61))).toMatchObject({ ok: false, reason: 'too-long' })
+  })
+
+  it('offers enough banks to cover most tutors without a keyboard', () => {
+    expect(COMMON_BANKS.length).toBeGreaterThanOrEqual(8)
+    expect(new Set(COMMON_BANKS).size).toBe(COMMON_BANKS.length)
+    for (const b of COMMON_BANKS) expect(checkBankName(b)).toMatchObject({ ok: true })
   })
 })
 

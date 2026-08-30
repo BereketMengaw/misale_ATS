@@ -80,6 +80,20 @@ export const askPayoutProvider = [
   'Which do you want to be paid into?',
 ].join('\n')
 
+export const askPayoutBank = [
+  'Which bank?',
+  '',
+  'Tap yours, or tap "Another one" and type its name.',
+].join('\n')
+
+export const askPayoutBankTyped = 'Type the name of your bank.'
+
+export const payoutBankProblem: Record<'empty' | 'too-short' | 'too-long', string> = {
+  empty: 'That was blank. Type the name of your bank.',
+  'too-short': 'That is too short to be a bank name. Type it again.',
+  'too-long': 'That is too long for a bank name. Just the name will do.',
+}
+
 export const askPayoutAccount = (label: string) =>
   [`Send me your ${label} account number.`, 'Digits only — no spaces or letters.'].join('\n')
 

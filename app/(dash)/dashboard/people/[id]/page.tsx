@@ -6,7 +6,7 @@ import { missingFields } from '@/lib/candidates/completeness'
 import type { Availability } from '@/lib/candidates/availability'
 import { applicationLabel, prepaymentLabel } from '@/lib/ui/labels'
 import { Badge, Card, CardHead, Meter, PageHeader, PageShell } from '@/components/ui'
-import { isPayable, providerLabel, type PayoutProvider } from '@/lib/candidates/payout-details'
+import { destinationLabel, isPayable, type PayoutProvider } from '@/lib/candidates/payout-details'
 import { prepaymentStage } from '@/lib/money/prepayment'
 import { formatEtb } from '@/lib/money/commission'
 import { DestinationForm } from './destination-form'
@@ -76,6 +76,7 @@ export default async function TutorPage({ params }: { params: Promise<{ id: stri
     provider: (c.payout_provider ?? null) as PayoutProvider | null,
     account: (c.payout_account ?? null) as string | null,
     name: (c.payout_name ?? null) as string | null,
+    bank: (c.payout_bank ?? null) as string | null,
   }
 
   const availability = (c.availability ?? {}) as Availability
@@ -175,7 +176,10 @@ export default async function TutorPage({ params }: { params: Promise<{ id: stri
 
         {isPayable(destination) ? (
           <>
-            <Row label="Paid into" value={`${providerLabel(destination.provider)} ${destination.account}`} />
+            <Row
+              label="Paid into"
+              value={`${destinationLabel(destination.provider, destination.bank)} ${destination.account}`}
+            />
             <Row label="Name on the account" value={destination.name ?? '—'} />
           </>
         ) : (
@@ -194,6 +198,7 @@ export default async function TutorPage({ params }: { params: Promise<{ id: stri
           provider={destination.provider}
           account={destination.account}
           name={destination.name}
+          bank={destination.bank}
         />
 
         <div className="mt-4 border-t border-neutral-100 pt-3">
