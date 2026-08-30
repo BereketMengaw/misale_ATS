@@ -198,6 +198,29 @@ describe('guards on what a model is allowed to say', () => {
     }
   })
 
+  // The mirror image, and the one that actually bit: asked "please call me",
+  // the model says "I cannot call you" — obeying the rule in the exact words
+  // the rule is written in. Rejecting that threw away its best answers and
+  // sent the blunt fact instead.
+  it('allows a denial that uses the same words as a promise', () => {
+    const denials = [
+      'I cannot call you as no person reads this chat.',
+      'No person reads this chat, and I cannot call you.',
+      'We will not call you about the rate.',
+      'You cannot contact us here; everything is a button.',
+      'Nobody will get back to you, because nobody reads this.',
+      "I can't reply to messages here.",
+    ]
+    for (const text of denials) {
+      expect(rejectAnswer(text), text).toBeNull()
+    }
+  })
+
+  // A denial in one sentence must not license a promise in the next.
+  it('still refuses a promise that follows a denial', () => {
+    expect(rejectAnswer('Nobody reads this chat. We will call you tomorrow.')).toBe('promises-a-human')
+  })
+
   // Every knowledge answer is a valid model answer, so the guards must not
   // reject the very text they fall back to.
   it('lets every knowledge answer through', () => {

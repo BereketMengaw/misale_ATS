@@ -67,6 +67,24 @@ const ETHIOPIC = /[ሀ-፿]/
 const PROMISES_A_HUMAN =
   /\b(?:we|i|someone|somebody|our team|an? (?:agent|operator|representative|staff))\b[^.!?]{0,40}\b(?:call|phone|ring|reply|respond|get back|be in touch|contact you|follow up)\b|\bcontact us\b|\breach out to us\b|\btalk to (?:a|an|our) (?:human|person|agent|operator|representative)\b|\bwe will let you know\b/i
 
+/**
+ * "I cannot call you" is the rule being kept, not broken — and on a question
+ * that asks to be called it is the obvious thing to say, so matching the bare
+ * shape threw away the model's best answers. A denial is checked for over the
+ * whole sentence, because the negation can sit either side of the phrase:
+ * "I cannot call you", "you cannot contact us".
+ */
+const DENIAL = /\b(?:not|never|no|none|nobody|cannot|unable)\b|n't\b/i
+
+/** Sentence at a time, so a denial in one cannot excuse a promise in the next. */
+function sentences(text: string): string[] {
+  return text.split(/(?<=[.!?])\s+/)
+}
+
+function promisesAHuman(text: string): boolean {
+  return sentences(text).some((s) => PROMISES_A_HUMAN.test(s) && !DENIAL.test(s))
+}
+
 /** A model inventing a link is a phishing message the agency sent. */
 const HAS_LINK = /https?:\/\/|www\.|t\.me\/|@[a-z0-9_]{4,}/i
 
@@ -87,7 +105,7 @@ export function rejectAnswer(text: string): AnswerRejection | null {
   if (trimmed.length > MAX_LENGTH) return 'too-long'
   if (ETHIOPIC.test(trimmed)) return 'not-english'
   if (HAS_LINK.test(trimmed)) return 'contains-link'
-  if (PROMISES_A_HUMAN.test(trimmed)) return 'promises-a-human'
+  if (promisesAHuman(trimmed)) return 'promises-a-human'
   return null
 }
 
