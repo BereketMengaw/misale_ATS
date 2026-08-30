@@ -1,4 +1,4 @@
-import type { JobFields, PostDraft } from '../types'
+import type { AiProvider, Answer, JobFields, PostDraft, Question } from '../types'
 import { formatEtb, split, toCents } from '@/lib/money/commission'
 
 /**
@@ -82,9 +82,25 @@ export function writePostTemplate(fields: JobFields): PostDraft {
   return { body, generatedBy: 'template' }
 }
 
-export const templateProvider = {
+/**
+ * The no-model answer: the best-matching fact, sent word for word.
+ *
+ * This is both the answer when no model is configured and the fallback for
+ * every model that fails, is rate-limited, or replies with something the
+ * guards in provider.ts reject. It is never wrong, only sometimes blunt.
+ */
+export function answerQuestionTemplate(question: Question): Answer {
+  const best = question.fallback
+  if (!best) return { text: '', covered: false, generatedBy: 'template' }
+  return { text: best.answer, covered: true, generatedBy: 'template' }
+}
+
+export const templateProvider: AiProvider = {
   name: 'template',
   async writePost(fields: JobFields): Promise<PostDraft> {
     return writePostTemplate(fields)
+  },
+  async answerQuestion(question: Question): Promise<Answer> {
+    return answerQuestionTemplate(question)
   },
 }

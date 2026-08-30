@@ -1,7 +1,9 @@
-import type { AiProvider, JobFields, PostDraft } from './types'
-import { templateProvider, writePostTemplate } from './providers/template'
+import { env } from '@/lib/env'
+import type { AiProvider, Answer, JobFields, PostDraft, Question } from './types'
+import { templateProvider, writePostTemplate, answerQuestionTemplate } from './providers/template'
+import { geminiProvider } from './providers/gemini'
 
-export type { AiProvider, JobFields, PostDraft }
+export type { AiProvider, Answer, JobFields, PostDraft, Question }
 
 /**
  * The ONLY place a model is called. Nothing else in the codebase imports a
@@ -14,11 +16,11 @@ export type { AiProvider, JobFields, PostDraft }
 
 const providers: Record<string, AiProvider> = {
   template: templateProvider,
-  // gemini: geminiProvider,   ← added when the free tier is wired up
+  gemini: geminiProvider,
 }
 
 export function activeProviderName(): string {
-  const name = process.env.AI_PROVIDER?.trim() || 'template'
+  const name = env.aiProvider
   return name in providers ? name : 'template'
 }
 
@@ -41,4 +43,91 @@ export async function writePost(fields: JobFields): Promise<PostDraft> {
     console.error(`ai provider "${provider.name}" failed on writePost, using template`, err)
     return writePostTemplate(fields)
   }
+}
+
+// ---------------------------------------------------------------------------
+// Answering a tutor's typed question
+// ---------------------------------------------------------------------------
+
+/**
+ * The model writes into a tutor's chat unsupervised, so what it produces is
+ * checked rather than trusted. A prompt is a request; these are the guarantee.
+ *
+ * Any failure here is not an error to surface — it is a fall back to the
+ * matched fact, verbatim. The tutor gets a blunter answer and never knows.
+ */
+
+/** Tutors and the bot are English only — see CLAUDE.md. */
+const ETHIOPIC = /[ሀ-፿]/
+
+/**
+ * The non-negotiable rule, enforced on the model's own words: nothing may
+ * suggest a human is on the other end of this chat.
+ */
+const PROMISES_A_HUMAN =
+  /\b(?:we|i|someone|somebody|our team|an? (?:agent|operator|representative|staff))\b[^.!?]{0,40}\b(?:call|phone|ring|reply|respond|get back|be in touch|contact you|follow up)\b|\bcontact us\b|\breach out to us\b|\btalk to (?:a|an|our) (?:human|person|agent|operator|representative)\b|\bwe will let you know\b/i
+
+/** A model inventing a link is a phishing message the agency sent. */
+const HAS_LINK = /https?:\/\/|www\.|t\.me\/|@[a-z0-9_]{4,}/i
+
+/** Two short paragraphs. Longer than this and it is reciting, not answering. */
+const MAX_LENGTH = 700
+
+export type AnswerRejection =
+  | 'not-english'
+  | 'promises-a-human'
+  | 'contains-link'
+  | 'too-long'
+  | 'empty'
+
+/** Null when the text is safe to send. Exported so the tests can be specific. */
+export function rejectAnswer(text: string): AnswerRejection | null {
+  const trimmed = text.trim()
+  if (!trimmed) return 'empty'
+  if (trimmed.length > MAX_LENGTH) return 'too-long'
+  if (ETHIOPIC.test(trimmed)) return 'not-english'
+  if (HAS_LINK.test(trimmed)) return 'contains-link'
+  if (PROMISES_A_HUMAN.test(trimmed)) return 'promises-a-human'
+  return null
+}
+
+/**
+ * Answer a tutor's question from the facts it was matched to. Never throws.
+ *
+ * `covered: false` means the facts did not answer it — the caller says so
+ * plainly rather than inventing something, and never offers a person instead.
+ */
+export async function answerQuestion(question: Question): Promise<Answer> {
+  const fallback = answerQuestionTemplate(question)
+  const provider = getProvider()
+
+  if (provider.name === 'template' || question.facts.length === 0) return fallback
+
+  let answer: Answer
+  try {
+    answer = await provider.answerQuestion(question)
+  } catch (err) {
+    console.error(`ai provider "${provider.name}" failed on answerQuestion, using template`, err)
+    return fallback
+  }
+
+  // The model read the facts and says they do not answer the question. Trust
+  // it: keyword retrieval matches on words, not meaning, and its top hit for
+  // "will I still be paid if the student stops coming" is the entry about
+  // deleting your data. A wrong answer sent confidently is worse than none.
+  //
+  // This is deliberately not the same as the model failing — a rejected or
+  // broken reply still falls back to the fact below, because there the
+  // keyword match is the best judgement anyone made.
+  if (!answer.covered) {
+    return { text: '', covered: false, generatedBy: answer.generatedBy }
+  }
+
+  const rejection = rejectAnswer(answer.text)
+  if (rejection) {
+    console.error(`ai provider "${provider.name}" answer rejected: ${rejection}`)
+    return fallback
+  }
+
+  return answer
 }

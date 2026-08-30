@@ -56,6 +56,7 @@ const TABLES = [
   'settings',
   'bot_sessions',
   'message_log',
+  'bot_answers',
   'job_posts',
   'channels',
   'post_publications',
@@ -187,6 +188,54 @@ if (botUsername) {
       }
     } catch (err) {
       fail(`Channel ${c.title}`, err instanceof GrammyError ? err.description : String(err))
+    }
+  }
+}
+
+// -------------------------------------------------------------------------- ai
+// The answerer works with no model at all, so an unset key is a choice rather
+// than a fault. A key that is set and does not work is worth knowing before a
+// tutor finds out.
+{
+  const provider = process.env.AI_PROVIDER?.trim() || 'template'
+  const key = process.env.GEMINI_API_KEY?.trim()
+  // Kept in step with lib/env.ts, which this script deliberately does not
+  // import: it checks the environment as it is, not as the app would read it.
+  const model = process.env.GEMINI_MODEL?.trim() || 'gemini-3.1-flash-lite'
+
+  if (provider === 'template') {
+    pass('AI provider', key ? 'template — a key is set but unused' : 'template — no model, answers sent verbatim')
+  } else if (provider !== 'gemini') {
+    fail('AI provider', `AI_PROVIDER="${provider}" is not registered`, 'Use "template" or "gemini".')
+  } else if (!key) {
+    fail('AI provider', 'AI_PROVIDER=gemini but GEMINI_API_KEY is empty', 'Get a key at https://aistudio.google.com/apikey')
+  } else {
+    try {
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
+        {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', 'x-goog-api-key': key },
+          body: JSON.stringify({
+            contents: [{ role: 'user', parts: [{ text: 'Reply with the word: ok' }] }],
+            generationConfig: { maxOutputTokens: 10 },
+          }),
+        },
+      )
+
+      if (res.ok) {
+        pass('AI provider', `gemini, ${model} answered`)
+      } else if (res.status === 429) {
+        fail('AI provider', 'free tier exhausted for now', 'It resets; until then every answer falls back to the matched fact.')
+      } else if (res.status === 400 || res.status === 403) {
+        fail('AI provider', `${res.status} — the key was refused`, 'Check GEMINI_API_KEY at https://aistudio.google.com/apikey')
+      } else if (res.status === 404) {
+        fail('AI provider', `no model named "${model}"`, 'Check GEMINI_MODEL against the models in AI Studio.')
+      } else {
+        fail('AI provider', `${res.status}: ${(await res.text()).slice(0, 120)}`)
+      }
+    } catch (err) {
+      fail('AI provider', err instanceof Error ? err.message : String(err), 'Could not reach Google. Check the network.')
     }
   }
 }

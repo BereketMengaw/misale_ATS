@@ -30,4 +30,25 @@ export const env = {
   get appUrl() {
     return required('NEXT_PUBLIC_APP_URL')
   },
+
+  // --- AI. All optional: unset means no model, and everything still works. ---
+
+  /** Which provider in lib/ai/provider.ts is live. 'template' calls no model. */
+  get aiProvider() {
+    return process.env.AI_PROVIDER?.trim() || 'template'
+  },
+  /** Google AI Studio. Empty means the Gemini provider stays unavailable. */
+  get geminiApiKey() {
+    return process.env.GEMINI_API_KEY?.trim() || ''
+  },
+  /**
+   * Pinned on purpose. The `-latest` alias was consistently the slowest of the
+   * flash-lite models and its behaviour moves under you; a pinned name is
+   * eventually retired instead (`gemini-2.0-flash` and `gemini-2.5-flash-lite`
+   * both 404 on a working key), which `npm run doctor` reports and the
+   * answerer survives by sending the matched fact.
+   */
+  get geminiModel() {
+    return process.env.GEMINI_MODEL?.trim() || 'gemini-3.1-flash-lite'
+  },
 }

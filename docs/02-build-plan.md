@@ -25,13 +25,24 @@ useful on its own.
 
 ## Which steps involve AI
 
-Only three, and all three work without it:
+Three of the twelve, and all three work without it:
 
 - **Step 2** — post wording. Starts as a template with no model at all.
 - **Step 5** — CV parsing. Deferrable; the wizard already collects the structured data by buttons,
   so the CV starts as evidence a human reads.
 - **Step 11** — fallback only, for an SMS format the regex parsers don't recognise. Without a
   model it goes to the Unmatched inbox instead.
+
+Plus one thing that is not a step: **answering a tutor's typed question**. It sits outside the
+build order because it does not gate anything — the bot works without it, as it always did, by
+sending people back to the buttons.
+
+Everything the bot may assert lives in `lib/bot/answers/knowledge.ts`. Keyword retrieval
+(`retrieve.ts`, pure and tested) picks the facts; the model only rephrases them for the question
+that was asked, and `rejectAnswer()` checks what comes back before it is sent. With no model the
+matched fact goes out verbatim, which is why this degrades to something usable rather than to an
+error. What nobody asked about yet shows up as uncovered rows in `bot_answers` — that is the list
+of entries still to write.
 
 Everything else — the wizard, ranking, the pipeline, timesheets, invoices, payment matching,
 payouts — is ordinary code.

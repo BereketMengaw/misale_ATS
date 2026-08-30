@@ -20,8 +20,38 @@ export type PostDraft = {
   generatedBy: string
 }
 
+export type Fact = { id: string; topic: string; answer: string }
+
+/**
+ * A tutor's typed question, plus the only facts an answer may be built from.
+ *
+ * `facts` is not context to be improved on — it is the whole permitted world.
+ * A provider that asserts anything outside it is a bug, and `provider.ts`
+ * checks the reply before it is sent.
+ *
+ * `fallback` is what gets sent when there is no model, or when the model's
+ * reply is rejected. It is separate from `facts` because the two differ: when
+ * keyword retrieval finds nothing we hand the model everything and let it
+ * decide, but there is no fact to fall back to, and a plain "I don't know"
+ * beats an answer to a question nobody asked.
+ */
+export type Question = {
+  text: string
+  facts: Fact[]
+  fallback: Fact | null
+}
+
+export type Answer = {
+  text: string
+  /** False when the facts did not cover the question; the bot then says so. */
+  covered: boolean
+  /** Provider name, or 'template'. Recorded on the row so it is auditable. */
+  generatedBy: string
+}
+
 export interface AiProvider {
   readonly name: string
   writePost(fields: JobFields): Promise<PostDraft>
+  answerQuestion(question: Question): Promise<Answer>
   // parseCV lands at step 5, parseSMS at step 11.
 }

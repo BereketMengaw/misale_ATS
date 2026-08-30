@@ -1,7 +1,7 @@
 import { Bot, type Context, type InlineKeyboard } from 'grammy'
 import { env } from '@/lib/env'
 import { copy } from './copy'
-import { applyKeyboard, backKeyboard, mainMenu, openJobsKeyboard, profileKeyboard, registerKeyboard } from './keyboards'
+import { answerKeyboard, applyKeyboard, backKeyboard, mainMenu, openJobsKeyboard, profileKeyboard, registerKeyboard } from './keyboards'
 import { getSession, saveSession } from './session'
 import { logMessage } from './log'
 import { countApply, getJob, isLive, listOpenJobs } from './jobs'
@@ -17,6 +17,8 @@ import type { Availability } from '@/lib/candidates/availability'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { recordCommissionDecision } from '@/lib/hiring/service'
 import { markTalentApplied } from '@/lib/talent/service'
+import { entryById, KNOWLEDGE } from './answers/knowledge'
+import { answerFor, looksLikeAQuestion } from './answers/service'
 
 let cached: Bot | null = null
 
@@ -167,17 +169,32 @@ function register(bot: Bot) {
     await reply(ctx, copy.faq, backKeyboard(), 'HTML')
   })
 
+  // A follow-up topic tapped under an answer. Sent verbatim from the knowledge
+  // base — a tap is not a question, so it costs no model call.
+  bot.callbackQuery(/^ask:(.+)$/, async (ctx) => {
+    await ctx.answerCallbackQuery()
+    const entry = entryById(ctx.match![1])
+    if (!entry) {
+      await reply(ctx, copy.answers.uncovered, answerKeyboard(defaultTopics()))
+      return
+    }
+    await reply(ctx, entry.answer, answerKeyboard(nearby(entry.id)))
+  })
+
   // Anything else under menu: is a button that no longer exists.
   bot.callbackQuery(/^menu:(.+)$/, async (ctx) => {
     await ctx.answerCallbackQuery({ text: copy.notReadyYet })
   })
 
-  // Shared contacts, typed names and CV files belong to the wizard.
-  // Anything else has no free-text branch, so it goes back to the buttons.
+  // Shared contacts, typed names and CV files belong to the wizard. Anything
+  // else typed is a question, and the bot answers it itself — no human is ever
+  // asked to interpret it, which is the rule that matters.
   bot.on('message', async (ctx) => {
     if (await handleRegisterMessage(ctx)) return
 
-    // A parent gets Amharic and is told plainly that nobody reads a reply.
+    // A parent gets Amharic. The answerer is English and tutor-facing, so a
+    // parent still gets the fixed line rather than an answer in the wrong
+    // language about the wrong side of the business.
     const { data: client } = await supabaseAdmin()
       .from('clients').select('id').eq('telegram_id', ctx.from.id).maybeSingle()
     if (client) {
@@ -185,7 +202,27 @@ function register(bot: Bot) {
       return
     }
 
-    await reply(ctx, copy.menu, mainMenu())
+    const text = ctx.message.text?.trim()
+    if (!text || !looksLikeAQuestion(text)) {
+      await reply(ctx, copy.menu, mainMenu())
+      return
+    }
+
+    // Asked mid-registration: answer, then point back at the step they are on
+    // rather than leaving them looking at a wall of buttons they scrolled past.
+    const session = await getSession(ctx.from.id)
+    const midRegistration = session?.flow === 'register'
+
+    const answered = await answerFor(ctx.from.id, ctx.chat.id, text)
+
+    if (!answered.covered) {
+      await reply(ctx, copy.answers.uncovered, answerKeyboard(answered.related))
+      if (midRegistration) await reply(ctx, copy.answers.backToRegistration)
+      return
+    }
+
+    await reply(ctx, answered.text, answerKeyboard(answered.related))
+    if (midRegistration) await reply(ctx, copy.answers.backToRegistration)
   })
 
   bot.catch((err) => {
@@ -341,4 +378,16 @@ async function reply(ctx: Context, text: string, keyboard?: InlineKeyboard, pars
     kind: 'reply',
     payload: { text },
   })
+}
+
+/** The three topics offered when there is nothing better to offer. */
+function defaultTopics() {
+  return KNOWLEDGE.filter((e) => ['how-it-works', 'pay', 'hear-back'].includes(e.id))
+}
+
+/** After reading one topic, the next most useful ones — never the same one twice. */
+function nearby(id: string) {
+  return KNOWLEDGE.filter((e) => e.id !== id)
+    .filter((e) => ['how-it-works', 'pay', 'pre-payment', 'hear-back', 'ranking'].includes(e.id))
+    .slice(0, 3)
 }

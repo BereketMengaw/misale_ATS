@@ -8,10 +8,30 @@ export const copy = {
     'Welcome 👋',
     '',
     'This is the Misale tutors bot. Open tutoring jobs come through here.',
-    'Everything is buttons — you never have to type.',
+    'Everything you do is a button — and if you have a question, just type it and I will answer.',
   ].join('\n'),
 
   menu: 'What would you like to do?',
+
+  // ---- typed questions ----
+  answers: {
+    /**
+     * Nothing in the knowledge base covered it. This says so and stops. It
+     * must never offer a person, a number to call or a promise to follow up —
+     * see the design rule in CLAUDE.md.
+     */
+    uncovered: [
+      "I don't have an answer for that one.",
+      '',
+      'I can explain how hiring works, what you are paid, our fee and the pre-payment, how you are ranked, and how lessons and hours run. Pick one below, or ask me another way.',
+    ].join('\n'),
+
+    /** Asked something in the middle of registering. Answer, then point back. */
+    backToRegistration: 'Now — back to your registration. Tap the buttons above to carry on.',
+
+    /** Under an answer, so a question that was nearly right leads somewhere. */
+    more: 'More on this:',
+  },
 
   applyingFor: 'This job:',
   applyNext: 'Tap below to continue. The whole registration is buttons.',
@@ -113,8 +133,8 @@ export const copy = {
     '<b>When do I hear back?</b>',
     'Only if you are shortlisted, and always here. There is nothing to chase.',
     '',
-    '<b>Can I reply to this chat?</b>',
-    'Nobody reads replies. Everything is a button — if there is no button for it, it is not something that happens here.',
+    '<b>Can I ask a question here?</b>',
+    'Yes — type it and I will answer. No person reads this chat, so nothing you send is passed on and nobody will call you back. Anything that actually happens here happens through a button.',
   ].join('\n'),
 
   buttons: {
