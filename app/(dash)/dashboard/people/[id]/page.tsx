@@ -93,6 +93,18 @@ export default async function TutorPage({ params }: { params: Promise<{ id: stri
         title={c.full_name ?? 'Unnamed'}
         subtitle={[c.phone ?? 'No phone', c.area ?? 'Area unknown'].join(' · ')}
         aside={<Meter value={c.completeness} label={`${c.completeness}% of a complete profile`} />}
+        action={
+          /* An imported tutor has no Telegram id, so there is no conversation
+             to read — the link is left off rather than leading to an empty page. */
+          c.telegram_id ? (
+            <Link
+              href={`/dashboard/inbox/${c.telegram_id}`}
+              className="text-sm text-neutral-500 underline underline-offset-2 hover:text-neutral-900"
+            >
+              Read the conversation
+            </Link>
+          ) : undefined
+        }
       />
 
       {gaps.length > 0 && (

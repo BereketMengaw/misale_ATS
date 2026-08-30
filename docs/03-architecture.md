@@ -59,7 +59,9 @@ jsonb, completeness, rating, status).
 `payments` (raw SMS, parsed jsonb, amount, payer, txn ref, provider, matched invoice, matched_by),
 `payouts` (gross − commission = net, status, txn ref).
 
-**Plumbing** — `bot_sessions`, `message_log`, `outbox` (the send queue), `notification_queue`,
+**Plumbing** — `bot_sessions`, `message_log`, `conversations` (one summary row per person,
+maintained from `message_log` by a trigger, so the Inbox can order and page in Postgres),
+`outbox` (the send queue), `notification_queue`,
 `settings` (commission defaults, ranking weights, contact-release rule, message templates).
 
 ## Ranking

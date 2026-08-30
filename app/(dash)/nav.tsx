@@ -7,14 +7,19 @@ const ITEMS = [
   { href: '/dashboard', label: 'Today', exact: true },
   { href: '/dashboard/jobs', label: 'Jobs' },
   { href: '/dashboard/people', label: 'People' },
+  { href: '/dashboard/inbox', label: 'Inbox' },
   { href: '/dashboard/money', label: 'Money' },
   { href: '/dashboard/settings', label: 'Settings' },
 ]
 
 /**
- * Five items, and it is always obvious which one you are on. Today carries a
+ * Six items, and it is always obvious which one you are on. Today carries a
  * count so pending work is visible from every screen — the reason the badge
  * exists is that nothing else in the app ever said "something needs you".
+ *
+ * Only Today carries one, and Inbox deliberately never will. A number beside
+ * Inbox would say people are waiting to be answered, which is the arrangement
+ * this whole system exists to avoid.
  */
 export function Nav({ waiting }: { waiting: number }) {
   const pathname = usePathname()

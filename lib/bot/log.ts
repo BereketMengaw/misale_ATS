@@ -6,6 +6,8 @@ type LogEntry = {
   chatId?: number | null
   kind?: string | null
   payload?: unknown
+  /** Set only when a person typed it. Everything the bot generates leaves it null. */
+  operatorId?: string | null
 }
 
 /**
@@ -20,6 +22,7 @@ export async function logMessage(entry: LogEntry): Promise<void> {
       chat_id: entry.chatId ?? null,
       kind: entry.kind ?? null,
       payload: entry.payload ?? null,
+      operator_id: entry.operatorId ?? null,
     })
   } catch (err) {
     console.error('message_log insert failed', err)

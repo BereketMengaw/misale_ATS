@@ -105,3 +105,23 @@ SIM means updating the registered number with CBE and Telebirr — do this early
 Fully unattended sending — a dedicated Android on a charger draining the queue on a schedule, or
 Ethio Telecom bulk SMS if volume justifies the paperwork. Same queue, same API; only the trigger
 changes.
+
+## The Inbox — reading it back, and speaking into it
+
+Everything above is the agency talking. The Inbox is the other half: `/dashboard/inbox` lists every
+person the bot has exchanged anything with, and opening one shows the whole transcript — their typed
+messages, their button taps rendered as words, the files they sent, the bot's replies, and for a
+parent, the SMS sent by hand out of the queue as well. A parent who never connected has been billed
+only over SMS, so leaving those out would show an empty page about somebody written to four times.
+
+The operator can add a line of his own. It goes out from the same bot account the person already
+knows, and it is logged with his id on it, so a transcript can always tell his words from the bot's
+— the one distinction that would otherwise be lost. `checkManualMessage()` refuses English to a
+family and Amharic to a tutor before anything is sent.
+
+**What is deliberately not there.** No unread count, no badge beside the nav item, nothing on Today,
+and no state a message can sit in waiting to be handled. The rule in CLAUDE.md is that no human is
+made to read and reply; a page he chooses to open does not break it, and a queue would. The bot goes
+on answering every typed question out of `knowledge.ts` whether he ever opens the Inbox or not, which
+is what makes a thread a record rather than a debt. `tests/conversations.test.ts` asserts each of
+those absences, because every one of them is a single small commit away.

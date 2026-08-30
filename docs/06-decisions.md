@@ -20,6 +20,9 @@
 | Tutor payout details | **Asked at the hire**, not at registration | Every applicant would otherwise hand over bank details for a job they may not get |
 | Account number in the bot | **In `settings`, sent verbatim** | Never in `knowledge.ts`: the model rewrites what is there, and a rewritten account number is money sent nowhere |
 | Asking for money with no account set | **Blocked, with a warning** | A request that cannot say where to send it is what forced the old "call us for detail" |
+| Reading the bot's conversations | **An Inbox, with no queue in it** | Seeing what was said is not holding a conversation. The rule is that nobody may be MADE to reply — so there is no unread count, nothing on Today, and no badge |
+| Speaking into a thread by hand | **Operator-initiated only** | He sends when he decides to. Nothing a tutor types can summon it, so nobody is ever left waiting on a person |
+| Language of a hand-typed message | **Checked at the send** | `parent.ts` is held to Amharic by a test because it is written ahead of time; a line typed at nine at night is in no file, so `checkManualMessage()` refuses it instead |
 
 ## Open — answer at the step that needs it
 
