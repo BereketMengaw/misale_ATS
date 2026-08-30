@@ -6,6 +6,7 @@ import {
   templateProvider, writePostTemplate, answerQuestionTemplate, parseCvTemplate, verifyDocumentTemplate,
 } from './providers/template'
 import { geminiProvider } from './providers/gemini'
+import { COMPARABLE_LABELS } from '@/lib/bot/buttons'
 
 export type { AiProvider, Answer, CvFile, CvRead, DocumentRead, JobFields, PostDraft, Question }
 
@@ -142,6 +143,67 @@ function promisesAHuman(text: string): boolean {
 /** A model inventing a link is a phishing message the agency sent. */
 const HAS_LINK = /https?:\/\/|www\.|t\.me\/|@[a-z0-9_]{4,}/i
 
+/**
+ * A model inventing a BUTTON is the same mistake with a longer fuse.
+ *
+ * It happened, in production, on 30 August. Asked how to change their details,
+ * the answerer ran in wide mode — the whole knowledge base handed over — read
+ * "you can register again later" in the entry about deleting your data, and
+ * turned it into an instruction: "Tap Register again to replace your details."
+ * That button was removed months ago, deliberately, because it meant redoing
+ * fourteen steps to fix one answer. Then the next two questions were
+ * follow-ups, so the model was shown its own invention as CONVERSATION SO FAR
+ * and repeated it twice more. One hallucination, three tutors sent looking for
+ * a button that is not there — and nobody to ask about it, by design.
+ *
+ * The cache half of this was fixed already (see knowledgeFingerprint). This is
+ * the other half: the prompt asks, and this is the check that guarantees.
+ */
+
+/** Capitalised mid-sentence without naming a button. Proper nouns, mostly. */
+const NOT_A_BUTTON = new Set([
+  'i', 'misale', 'addis', 'ababa', 'ethiopia', 'ethiopian', 'telegram', 'english',
+  'amharic', 'birr', 'etb', 'grade', 'monday', 'tuesday', 'wednesday', 'thursday',
+  'friday', 'saturday', 'sunday', 'january', 'february', 'march', 'april', 'may',
+  'june', 'july', 'august', 'september', 'october', 'november', 'december',
+])
+
+/** Words that mean "press this thing". */
+const BUTTON_VERB = /\b(?:tap|press|click|hit|select|use|open|go to)\b/i
+
+/**
+ * Does this sentence name something, as opposed to pointing at one? "Tap the
+ * button below" names nothing and is checked no further; "Tap Register again"
+ * names a thing, and the thing has to exist.
+ *
+ * The first word is skipped: every sentence starts with a capital.
+ */
+function namesSomething(sentence: string): boolean {
+  const words = sentence.trim().split(/\s+/).slice(1)
+  return words.some((w) => {
+    const bare = w.replace(/[^A-Za-z]/g, '')
+    return bare.length > 1 && /^[A-Z]/.test(bare) && !NOT_A_BUTTON.has(bare.toLowerCase())
+  })
+}
+
+function mentionsARealButton(sentence: string): boolean {
+  const flat = ` ${sentence.toLowerCase().replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim()} `
+  return COMPARABLE_LABELS.some((label) => flat.includes(` ${label} `))
+}
+
+/**
+ * Deliberately lenient. A sentence that names nothing passes, and so does one
+ * that happens to contain any real label — because the cost of the two errors
+ * is not symmetrical. A false negative sends one wrong button; a false
+ * positive throws away every good answer that tells somebody what to press,
+ * which is most of the useful ones.
+ */
+function namesAButtonThatIsNotThere(text: string): boolean {
+  return sentences(text).some(
+    (s) => BUTTON_VERB.test(s) && namesSomething(s) && !mentionsARealButton(s),
+  )
+}
+
 /** Two short paragraphs. Longer than this and it is reciting, not answering. */
 const MAX_LENGTH = 700
 
@@ -149,6 +211,7 @@ export type AnswerRejection =
   | 'not-english'
   | 'promises-a-human'
   | 'contains-link'
+  | 'unknown-button'
   | 'too-long'
   | 'empty'
 
@@ -160,6 +223,7 @@ export function rejectAnswer(text: string): AnswerRejection | null {
   if (ETHIOPIC.test(trimmed)) return 'not-english'
   if (HAS_LINK.test(trimmed)) return 'contains-link'
   if (promisesAHuman(trimmed)) return 'promises-a-human'
+  if (namesAButtonThatIsNotThere(trimmed)) return 'unknown-button'
   return null
 }
 

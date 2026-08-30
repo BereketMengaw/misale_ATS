@@ -240,6 +240,62 @@ describe('guards on what a model is allowed to say', () => {
     expect(rejectAnswer('Nobody reads this chat. We will call you tomorrow.')).toBe('promises-a-human')
   })
 
+  // What actually went out on 30 August, three times over. The model read
+  // "you can register again later" in the entry about deleting your data,
+  // turned it into a button, and was then shown its own invention as
+  // CONVERSATION SO FAR and repeated it twice more. The button was removed
+  // months earlier, and a tutor looking for it has nobody to ask.
+  it('refuses to send somebody to a button that is not there', () => {
+    for (const text of [
+      'Tap Register again to replace your details.',
+      'You must use the Register again button to update your details.',
+      'No, you must use the Register again button in your profile to update your details.',
+      'Open Edit My Answers and change the one that is wrong.',
+      'Press Contact Support and somebody there can help.',
+    ]) {
+      expect(rejectAnswer(text), text).toBe('unknown-button')
+    }
+  })
+
+  it('lets an instruction naming a real button through', () => {
+    for (const text of [
+      'Open My profile and tap Change something.',
+      'Tap Open jobs to see what is live right now.',
+      'Use the Payment details button to tell us where your money should go.',
+      'Tap Apply for this job and I will take you through it.',
+      'Open My profile, tap Change something, and pick Phone number.',
+    ]) {
+      expect(rejectAnswer(text), text).toBeNull()
+    }
+  })
+
+  // The check only fires on a sentence that NAMES something. Pointing at a
+  // button without naming it is how half the good answers are written, and
+  // rejecting those would cost far more than the wrong button ever did.
+  it('says nothing about an instruction that names nothing', () => {
+    for (const text of [
+      'Tap the button below and I will take you through it.',
+      'Use the buttons — the whole registration is buttons.',
+      'Open it and answer the one that is wrong.',
+      'Press whichever job you want.',
+    ]) {
+      expect(rejectAnswer(text), text).toBeNull()
+    }
+  })
+
+  // A capital letter is not a button. Rejecting these would gut the answers
+  // that mention where the work is or what language to write in.
+  it('does not mistake a proper noun for a button', () => {
+    for (const text of [
+      'Open jobs are all in Addis Ababa at the moment.',
+      'You can use English or Amharic when you talk to the family.',
+      'Select the days you can teach — Monday to Friday are the common ones.',
+      'Misale places tutors with families; tap the one you want.',
+    ]) {
+      expect(rejectAnswer(text), text).toBeNull()
+    }
+  })
+
   // Every knowledge answer is a valid model answer, so the guards must not
   // reject the very text they fall back to.
   it('lets every knowledge answer through', () => {
