@@ -62,7 +62,7 @@ export const copy = {
       `Nothing is open this minute. Register and I will message you here the moment a job fits you — and every post also goes to ${JOBS_GROUP} if you would rather watch for yourself.`,
 
     /** "Is it still open?" — answered from the live list rather than a promise. */
-    stillOpen: 'These are open right now. Anything not listed has been filled.',
+    stillOpen: 'These are open right now. Anything not listed already has a tutor.',
     stillOpenNothing: `Nothing is open right now. Register and I will message you when a job fits — every post also goes to ${JOBS_GROUP}.`,
 
     /**
@@ -78,7 +78,7 @@ export const copy = {
   applyingFor: 'This job:',
   applyNext: 'Tap below to continue. The whole registration is buttons.',
 
-  jobFilled: 'Sorry — this position has been filled. Here is what is open now.',
+  jobFilled: 'Sorry — a tutor has already been assigned to that one. Here is what is open now.',
   jobNotFound: 'That posting could not be found. Here is what is open now.',
   noOpenJobs: `Nothing is open right now. Register and we will message you when something fits — and every post also goes to ${JOBS_GROUP}, so you can watch there too.`,
 

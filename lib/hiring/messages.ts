@@ -135,15 +135,21 @@ export function notChosenAfterShortlist(job: JobSummary): string {
 /** Everyone else in the pipeline. Short, honest, no false hope. */
 export function notChosen(job: JobSummary): string {
   return [
-    `${jobLine(job)} has been filled.`,
+    `${jobLine(job)} has been given to another tutor.`,
     '',
     'We will message you when something else suits you. Nothing to reply to.',
   ].join('\n')
 }
 
-/** What a channel post becomes once the job is filled. */
+/**
+ * What a channel post becomes once somebody is hired.
+ *
+ * "TUTOR ASSIGNED" rather than "FILLED": the post is read by families as well
+ * as tutors, and it says what happened — a tutor is on this job — instead of
+ * describing the state of a vacancy the reader never saw.
+ */
 export function filledPost(originalBody: string): string {
-  return `✅ FILLED\n\n${strikeHeader(originalBody)}`
+  return `✅ TUTOR ASSIGNED\n\n${strikeHeader(originalBody)}`
 }
 
 /** Keep the post recognisable, but make the first line unmistakable. */

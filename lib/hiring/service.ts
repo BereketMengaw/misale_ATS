@@ -325,7 +325,7 @@ function buildParentIntro(
 }
 
 /**
- * Edit each channel post to FILLED and take the Apply button off. Editing in
+ * Edit each channel post to TUTOR ASSIGNED and take the Apply button off. Editing in
  * place keeps the post's views and position; deleting and reposting loses both.
  */
 export async function markPostsFilled(jobId: number): Promise<{ postsEdited: number; postsFailed: number }> {
@@ -355,7 +355,7 @@ export async function markPostsFilled(jobId: number): Promise<{ postsEdited: num
       postsEdited++
     } catch (err) {
       const detail = err instanceof GrammyError ? err.description : String(err)
-      // "message is not modified" means it already says FILLED — not a failure.
+      // "message is not modified" means it already carries the banner — not a failure.
       if (detail.includes('not modified')) {
         postsEdited++
       } else {

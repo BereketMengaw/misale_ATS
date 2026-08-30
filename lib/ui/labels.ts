@@ -2,7 +2,7 @@
  * One vocabulary for every status in the dashboard. PURE.
  *
  * Before this existed the same value read three ways: the jobs list printed
- * `closed_filled`, the job page printed "Filled", and the candidate page
+ * `closed_filled`, the job page printed "Tutor assigned", and the candidate page
  * printed a raw application status beside a job page that mapped it. A status
  * the operator cannot name is a status he cannot act on.
  */
@@ -14,7 +14,7 @@ export type Label = { label: string; tone: Tone }
 
 /** A job's phase, as the operator thinks about it — not as Postgres stores it. */
 export function jobLabel(status: string, approvedAt: string | null): Label {
-  if (status === 'closed_filled') return { label: 'Filled', tone: 'solid-green' }
+  if (status === 'closed_filled') return { label: 'Tutor assigned', tone: 'solid-green' }
   if (status === 'closed_cancelled') return { label: 'Cancelled', tone: 'faded' }
   if (status === 'expired') return { label: 'Expired', tone: 'faded' }
   if (status === 'open') return { label: 'Live', tone: 'blue' }
@@ -38,7 +38,7 @@ export function applicationLabel(status: string): Label {
     case 'rejected':
       return { label: 'Not chosen', tone: 'faded' }
     case 'pooled':
-      return { label: 'Told it was filled', tone: 'faded' }
+      return { label: 'Told it was taken', tone: 'faded' }
     default:
       return { label: status, tone: 'neutral' }
   }

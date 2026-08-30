@@ -48,7 +48,9 @@ type JobRow = {
 const PHASES: { key: Phase; label: string; note: string }[] = [
   { key: 'draft', label: 'Draft', note: 'not visible to anyone' },
   { key: 'live', label: 'Live', note: 'taking applications' },
-  { key: 'filled', label: 'Filled', note: 'running placements' },
+  // The key stays 'filled' — it is a URL parameter, and /dashboard/placements
+  // redirects to it. Only the word on screen changes.
+  { key: 'filled', label: 'Tutor assigned', note: 'running placements' },
 ]
 
 function ageInDays(iso: string): number {

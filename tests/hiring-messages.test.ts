@@ -94,10 +94,10 @@ describe('hiring messages', () => {
     expect(hired(job, 'Selam', 20, 'never', null)).toContain('3,600 ETB per month')
   })
 
-  it('marks a filled post without destroying it', () => {
+  it('marks an assigned post without destroying it', () => {
     const original = '📚 Tutor needed — Mathematics\n\nGrade: Grade 9\nPay: 3,600 ETB per month'
     const filled = filledPost(original)
-    expect(filled.startsWith('✅ FILLED')).toBe(true)
+    expect(filled.startsWith('✅ TUTOR ASSIGNED')).toBe(true)
     expect(filled).toContain('no longer accepting applications')
     expect(filled).toContain('Grade: Grade 9')  // the post is still readable
     expect(filled.length).toBeLessThan(4096)
