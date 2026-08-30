@@ -25,6 +25,20 @@ export const copy = {
 
   menu: 'What would you like to do?',
 
+  /**
+   * A file from somebody who is not mid-registration. Eleven people in the
+   * real history sent a transcript into a bot that answered with a menu.
+   */
+  files: {
+    savedAsCv: 'Got it — saved as your CV.',
+    savedAsDocument: 'Got it — added to your documents.',
+    notRegistered:
+      'I cannot keep that yet — there is no profile to put it on. Register first and I will ask you for it, and for your educational documents, as part of the steps.',
+    tooBig: 'That file is over 10 MB. Send a smaller one.',
+    badType: 'Send a PDF, a Word document, or a photo.',
+    failed: 'That did not save. Try sending it once more.',
+  },
+
   // ---- typed questions ----
   answers: {
     /**

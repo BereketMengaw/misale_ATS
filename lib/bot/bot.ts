@@ -21,6 +21,8 @@ import { entryById } from './answers/knowledge'
 import { answerFor, looksLikeAQuestion } from './answers/service'
 import { detectIntent, isLeavingNotice } from './answers/intent'
 import { recordQuitNotice } from '@/lib/notices/service'
+import { attachFile } from '@/lib/candidates/store'
+import { ACCEPTED_MIME, MAX_UPLOAD_BYTES } from '@/lib/candidates/files'
 
 let cached: Bot | null = null
 
@@ -201,6 +203,13 @@ function register(bot: Bot) {
       .from('clients').select('id').eq('telegram_id', ctx.from.id).maybeSingle()
     if (client) {
       await reply(ctx, parentBotCopy.nothingToReply)
+      return
+    }
+
+    // A CV or a transcript from somebody who registered weeks ago. Eleven
+    // people in the real history sent one and got the main menu back.
+    if (ctx.message.document || ctx.message.photo) {
+      await keepTheFile(ctx)
       return
     }
 
@@ -441,4 +450,49 @@ async function handleIntent(ctx: Context, text: string): Promise<boolean> {
 
   await reply(ctx, copy.answers.courtesy)
   return true
+}
+
+/**
+ * A file sent outside the wizard. Kept against the profile rather than
+ * answered with a menu — and refused politely when there is no profile to
+ * keep it on, since a file with nobody attached is a file nobody finds again.
+ */
+async function keepTheFile(ctx: Context) {
+  const msg = ctx.message!
+  const doc = msg.document
+  const photo = msg.photo?.[msg.photo.length - 1]
+
+  const size = doc?.file_size ?? photo?.file_size ?? 0
+  if (size > MAX_UPLOAD_BYTES) {
+    await reply(ctx, copy.files.tooBig)
+    return
+  }
+
+  const mime = doc?.mime_type ?? 'image/jpeg'
+  if (doc && !ACCEPTED_MIME.test(mime)) {
+    await reply(ctx, copy.files.badType)
+    return
+  }
+
+  const name = doc?.file_name ?? `document-${Date.now()}.jpg`
+
+  try {
+    const file = await ctx.api.getFile(doc?.file_id ?? photo!.file_id)
+    const res = await fetch(`https://api.telegram.org/file/bot${env.telegramBotToken}/${file.file_path}`)
+    const outcome = await attachFile(ctx.from!.id, name, mime, await res.arrayBuffer())
+
+    if (outcome === 'not-registered') {
+      await reply(ctx, copy.files.notRegistered, registerKeyboard())
+      return
+    }
+    await reply(
+      ctx,
+      outcome === 'cv' ? copy.files.savedAsCv
+      : outcome === 'document' ? copy.files.savedAsDocument
+      : copy.files.failed,
+    )
+  } catch (err) {
+    console.error('could not keep a file sent outside the wizard', err)
+    await reply(ctx, copy.files.failed)
+  }
 }

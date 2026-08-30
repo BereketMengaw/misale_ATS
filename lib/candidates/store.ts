@@ -198,6 +198,54 @@ export async function saveDocuments(
   }
 }
 
+/**
+ * A file sent by somebody who has already registered.
+ *
+ * It becomes their CV if they have not sent one — a registered tutor sending a
+ * single file almost always means it as their CV, and the profile counts it —
+ * and otherwise joins their educational documents.
+ */
+export async function attachFile(
+  telegramId: number,
+  fileName: string,
+  mime: string,
+  bytes: ArrayBuffer,
+): Promise<'cv' | 'document' | 'not-registered' | 'failed'> {
+  const db = supabaseAdmin()
+
+  const { data: candidate } = await db
+    .from('candidates').select('id, cv_path').eq('telegram_id', telegramId).maybeSingle()
+  if (!candidate) return 'not-registered'
+
+  if (!candidate.cv_path) {
+    const path = await storeCv(telegramId, fileName, mime, bytes)
+    if (!path) return 'failed'
+    const { error } = await db
+      .from('candidates')
+      .update({ cv_path: path, cv_name: fileName, cv_mime: mime })
+      .eq('id', candidate.id)
+    if (error) {
+      console.error('attachFile could not set the cv', error)
+      return 'failed'
+    }
+    return 'cv'
+  }
+
+  const path = await storeDocument(telegramId, fileName, mime, bytes)
+  if (!path) return 'failed'
+  const { error } = await db.from('candidate_documents').insert({
+    candidate_id: candidate.id,
+    path,
+    file_name: fileName,
+    mime,
+  })
+  if (error) {
+    console.error('attachFile could not add the document', error)
+    return 'failed'
+  }
+  return 'document'
+}
+
 /** Everything "My profile" shows. One read, no scoring. */
 export async function candidateProfile(telegramId: number) {
   const { data } = await supabaseAdmin()

@@ -9,12 +9,15 @@ import {
   GENDERS, GRADE_BANDS, labelFor, RATE_BANDS, SLOTS, type Option,
 } from '@/lib/candidates/options'
 import { applyToJob, saveCandidate, saveDocuments, storeCv, storeDocument, type Draft } from '@/lib/candidates/store'
+import { ACCEPTED_MIME, MAX_UPLOAD_BYTES } from '@/lib/candidates/files'
 import { normalizePhone, phoneProblem } from '@/lib/candidates/phone'
 import { markTalentApplied } from '@/lib/talent/service'
 import { env } from '@/lib/env'
 
-const MAX_CV_BYTES = 10 * 1024 * 1024
-const CV_MIME = /^(application\/pdf|application\/msword|application\/vnd\.openxmlformats|image\/(jpeg|png|webp))/
+// Shared with the path that accepts a file sent after registering: a
+// transcript that was fine during the wizard cannot be refused an hour later.
+const MAX_CV_BYTES = MAX_UPLOAD_BYTES
+const CV_MIME = ACCEPTED_MIME
 
 type Sess = { draft: Draft; jobId?: number; publicationId?: number | null }
 
