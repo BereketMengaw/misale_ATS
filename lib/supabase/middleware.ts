@@ -1,6 +1,8 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
+const AUTH_TIMEOUT_MS = 5000
+
 /**
  * Refreshes the auth cookie on every request and gates the dashboard.
  * Runs before the page, so a Server Component never sees a stale session.
@@ -29,9 +31,13 @@ export async function updateSession(request: NextRequest) {
     },
   )
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  // A slow Supabase must not push middleware past Vercel's limit (504).
+  // On timeout we treat the visitor as signed out.
+  const result = await Promise.race([
+    supabase.auth.getUser(),
+    new Promise<null>((resolve) => setTimeout(() => resolve(null), AUTH_TIMEOUT_MS)),
+  ])
+  const user = result?.data.user ?? null
 
   const path = request.nextUrl.pathname
   const isProtected = path.startsWith('/dashboard')

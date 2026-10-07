@@ -6,9 +6,7 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: [
-    // Everything except static assets and the bot/webhook API routes,
-    // which authenticate with their own shared secrets.
-    '/((?!_next/static|_next/image|favicon.ico|api/).*)',
-  ],
+  // Only the routes that read the session. Public pages skip the
+  // Supabase round-trip entirely.
+  matcher: ['/dashboard/:path*', '/login'],
 }
